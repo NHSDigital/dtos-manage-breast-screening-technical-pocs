@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Breast Screening Gateway",
+  "description": "This extension is required to allow the breast screening management system interact with the screening tools",
+  "version": "1.0",
+  "permissions": ["scripting", "activeTab"],
+  "host_permissions": [
+    "http://manage-breast-screening:8080/*",
+    "http://screening-gateway:9090/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://manage-breast-screening:8080/*"],
+      "js": ["content.js"]
+    }
+  ]
+}
