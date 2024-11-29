@@ -5,6 +5,7 @@ name = "pypi"
 
 [packages]
 pyjwt = {extras = ["crypto"], version = "*"}
+jinja2 = "*"
 
 [dev-packages]
 

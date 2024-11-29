@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Manage breast screening</title>
+    <title>{{ title }}Manage breast screening</title>
     <link href="https://www.nhs.uk/" rel="preconnect">
     <link href="https://assets.nhs.uk/" rel="preconnect" crossorigin>
 
@@ -9,7 +9,7 @@
     <link type="font/woff2" href="https://assets.nhs.uk/fonts/FrutigerLTW01-65Bold.woff2" rel="preload" as="font" crossorigin>
 
 
-    <link href="/main.css" rel="stylesheet">
+    <link href="./src/web_server/main.css" rel="stylesheet">
   </head>
   <body>
     <header class="nhsuk-header" role="banner">
@@ -75,7 +75,7 @@
 
             </td>
             <td class="nhsuk-table__cell">
-              <button class="nhsuk-button-sml" id="gwendolyn-johanna-zboncak-goldner">Send for scan</button>
+              <button class="nhsuk-button-sml" data-gateway-message="{{user_one_jwt}}">Send for scan</button>
             </td>
           </tr>
         
@@ -98,7 +98,7 @@
 
             </td>
             <td class="nhsuk-table__cell">
-              <button class="nhsuk-button-sml" id="silvia-jan-auer">Send for scan</button>
+              <button class="nhsuk-button-sml" data-gateway-message="{{user_two_jwt}}">Send for scan</button>
             </td>
           </tr>
         
