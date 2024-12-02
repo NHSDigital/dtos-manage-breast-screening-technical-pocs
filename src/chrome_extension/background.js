@@ -3,7 +3,7 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
     console.log("Message received in background script:", message);
 
     // Return a Promise to handle the asynchronous operation
-    return fetch("http://screening-gateway:9090/scan", {
+    return fetch("http://screening-gateway:9090/do", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

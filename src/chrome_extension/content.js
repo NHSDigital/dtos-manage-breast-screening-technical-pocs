@@ -4,10 +4,8 @@ document.addEventListener("click", (event) => {
   if (event.target.tagName.toLowerCase() === "button") {
     console.log("Button clicked:", event.target);
 
-    // Example payload
     const payload = {
-      buttonId: event.target.id || null,
-      buttonText: event.target.innerText || "Unnamed button",
+      message: event.target.dataset.gatewayMessage,
       timestamp: new Date().toISOString(),
     };
 
