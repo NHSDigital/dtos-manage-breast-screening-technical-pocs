@@ -7,7 +7,7 @@ class JWTEncoder:
     def __init__(self, private_key: str = os.getenv("JWT_PRIVATE_KEY")):
         self.private_key = private_key
 
-    def generate_token(self, user_id: int, first_name: str, last_name: str,
+    def call(self, user_id: int, first_name: str, last_name: str,
                        expiration_minutes: int = 60) -> str:
         payload = {
             "id": user_id,
