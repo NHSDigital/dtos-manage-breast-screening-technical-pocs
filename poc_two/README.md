@@ -33,7 +33,7 @@ The example uses the Horos open source DICOM viewer.
 * Clone the repository
 * Run `pipenv install` to install the dependencies
 * `cd` into the `poc_two` directory
-* `pipenv run python -m src.screening-gateway.server`
+* `pipenv run python -m src.web_server.server`
 * Open a web browser and navigate to `http://localhost:8080` and you should see the web server running
 * Click the "View study in image reader" link
 * The study for "Hazel Brooke Connelly" should open
