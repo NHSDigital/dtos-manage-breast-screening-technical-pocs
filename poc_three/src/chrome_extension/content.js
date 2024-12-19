@@ -1,7 +1,8 @@
 // Add an event listener to detect button clicks
 document.addEventListener("click", (event) => {
   // Check if the clicked element is a button
-  if (event.target.tagName.toLowerCase() === "button") {
+  if (event.target.hasAttribute("data-open-reader")) {
+    event.preventDefault();
     console.log("Button clicked:", event.target);
 
     const payload = {
