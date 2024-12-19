@@ -1,8 +1,7 @@
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 import os
-from src.jwt_decoder import JWTDecoder
-import urllib.parse
 import json
+import requests
 
 
 class CustomHTTPRequestHandler(SimpleHTTPRequestHandler):
@@ -16,21 +15,32 @@ class CustomHTTPRequestHandler(SimpleHTTPRequestHandler):
             content_length = int(self.headers["Content-Length"])
             post_data = self.rfile.read(content_length)
 
-            parsed_data = json.loads(post_data.decode('utf-8'))
-            message = parsed_data.get('message', '')
+            # parse the postdata string as json
+            parsed_post_data = json.loads(post_data.decode("utf-8"))
+            parsed_message = json.loads(parsed_post_data["message"])
 
-            try:
-                decoded_message = JWTDecoder().call(message)
-                print("Decoded message: ", decoded_message)
-                response_status = 200
+            print("parsed POST message: ", parsed_message)
+            print("message type: ", parsed_message["type"])
+            print("message payload: ", parsed_message["payload"])
+            print("message destination: ", parsed_message["destination"])
 
-            except ValueError as e:
-                response_status = 400
-                print(str(e), "Do nothing")
+            payload = parsed_message["payload"]
+            destination = parsed_message["destination"]
 
+            response = self.send_XML_RPC_request(payload, destination)
+
+            response_status = 200
             self.send_response(response_status)
             self.end_headers()
             self.wfile.write(b"POST request for " + self.path.encode())
+
+    def send_XML_RPC_request(self, xml_message, destination):
+        print("Sending XML-RPC request to ", destination)
+        headers = {"Content-Type": "text/xml"}
+        response = requests.post(destination, data=xml_message, headers=headers)
+        print("Response: ", response.text)
+        return response
+
 
 
 def run_server(port=9090, directory="."):
