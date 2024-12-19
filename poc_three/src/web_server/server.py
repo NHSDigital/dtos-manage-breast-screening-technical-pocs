@@ -9,10 +9,7 @@ class CustomHTTPRequestHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/" or self.path == "":
             template = template_dir.get_template("index.htm")
-            html_content = template.render(
-                # user_one_jwt=jwt_encoder.call(1, "Gwendolyn Johanna", "Zboncak-Goldner"),
-                # user_two_jwt=jwt_encoder.call(2, "Sylvia", "Jan Auer")
-            )
+            html_content = template.render()
 
             # Send response
             self.send_response(200)
@@ -27,7 +24,7 @@ def run_server(port=8080, directory="."):
     os.chdir(directory)  # Change the working directory to serve files from
     server_address = ("", port)
     httpd = HTTPServer(server_address, CustomHTTPRequestHandler)
-    print(f"Serving on port {port}. Visit http://manage-breast-screening:{port}/")
+    print(f"Serving on port {port}. Visit http://localhost:{port}/")
     httpd.serve_forever()
 
 
