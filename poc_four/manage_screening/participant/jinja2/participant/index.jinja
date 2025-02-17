@@ -1,5 +1,5 @@
-{% from 'components/atoms/horizontal_rule/macro.html' import horizontalRule %}
+{% extends "layout.html" %}
 
-{{ horizontalRule() }}
-
-Hello
+{% block content %}
+  <h1>Participants</h1>
+{% endblock %}
