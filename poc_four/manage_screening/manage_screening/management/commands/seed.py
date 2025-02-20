@@ -1,5 +1,11 @@
+import os
+import uuid
 from django.core.management.base import BaseCommand
-from participant.models import Details
+from participant.models import Participant
+from gateway.models import Gateway, Setting
+from django.contrib.auth.models import User
+from django.db.utils import IntegrityError
+
 
 class Command(BaseCommand):
     def handle(self, *args, **kwargs):
@@ -17,6 +23,32 @@ class Command(BaseCommand):
                 ]
 
         for record in records:
-            Details.objects.create(**record)
+            Participant.objects.create(**record)
+
+        setting = Setting.objects.create(
+            name="Alpha Hospital Trust"
+            )
+
+        Gateway.objects.create(
+            setting = setting,
+            id = uuid.uuid4(),
+            order_url = "https://local-order-service/order"
+            )
+            
+        # Create a superuser if one doesn't exist
+        try:
+            if not User.objects.filter(username="admin").exists():
+                User.objects.create_superuser(
+                    username="admin",
+                    email="admin@example.com",
+                    password=os.environ.get("DJANGO_SUPERUSER_PASSWORD"),
+                )
+                self.stdout.write(self.style.SUCCESS("Superuser 'admin' created successfully!"))
+            else:
+                self.stdout.write(self.style.WARNING("Superuser 'admin' already exists."))
+        except IntegrityError:
+            self.stdout.write(self.style.ERROR("Error creating superuser!"))
+
+        self.stdout.write(self.style.SUCCESS("Database seeding completed!"))
 
 

@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'manage_screening',
     'participant',
+    'gateway'
 ]
 
 MIDDLEWARE = [ 'django.middleware.security.SecurityMiddleware',
