@@ -10,8 +10,8 @@ class Message(models.Model):
     payload = models.TextField()
     destination = models.CharField(max_length=300)
     created_at = models.DateTimeField(auto_now_add=True)
-    delivered_at = models.DateTimeField()
-    confirmed_at = models.DateTimeField()
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    confirmed_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f'{self.id}'
