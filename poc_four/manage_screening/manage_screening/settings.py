@@ -10,6 +10,7 @@ For the full list of settings and their values, see https://docs.djangoproject.c
 
 from pathlib import Path
 import os
+import sys
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -26,6 +27,59 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {name} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname}: {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'DEBUG',  # Show everything in development
+            'class': 'logging.StreamHandler',
+            'stream': sys.stdout,
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'DEBUG',  # Global level
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',  # Avoid excessive debug noise
+            'propagate': False,
+        },
+        'django.server': {
+            'handlers': ['console'],
+            'level': 'WARNING',  # Suppress most server logs
+            'propagate': False,
+        },
+        'django.db.backends': {
+            'handlers': ['console'],
+            'level': 'WARNING',  # Avoid verbose SQL queries
+            'propagate': False,
+        },
+        'participant': {  # Replace with your app name
+            'handlers': ['console'],
+            'level': 'DEBUG',  # Show detailed logs for your code
+            'propagate': False,
+        },
+        'gateway': {  # Replace with your app name
+            'handlers': ['console'],
+            'level': 'DEBUG',  # Show detailed logs for your code
+            'propagate': False,
+        },
+    },
+}
 
 # Application definition
 
