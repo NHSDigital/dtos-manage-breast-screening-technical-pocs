@@ -20,7 +20,13 @@ def create(request):
 
 def get(request, gateway_id):
     messages = Message.objects.filter(gateway_id=gateway_id, delivered_at__isnull=True)
-    response_data = [{"message_id": msg.id} for msg in messages]
+    response_data = [
+            {
+                "message_id": msg.id,
+                "type": msg.type,
+                "payload": msg.payload,
+                "destination": msg.destination
+            } for msg in messages]
     #mark them all delivered
     messages.update(delivered_at=timezone.now())
     return JsonResponse(response_data, safe=False)
