@@ -1,5 +1,4 @@
 import os
-import uuid
 from django.core.management.base import BaseCommand
 from participant.models import Participant
 from gateway.models import Gateway, Setting
@@ -31,7 +30,7 @@ class Command(BaseCommand):
 
         Gateway.objects.create(
             setting = setting,
-            id = uuid.uuid4(),
+            id = os.environ.get("GATEWAY_ID"),
             order_url = "https://local-order-service/order"
             )
             

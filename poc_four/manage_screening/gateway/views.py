@@ -12,4 +12,3 @@ def create(request):
             return redirect("/")
         else:
             return HttpResponse("Form is not valid")
-

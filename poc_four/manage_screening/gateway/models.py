@@ -1,9 +1,10 @@
 from django.db import models
 from participant.models import Participant
+import uuid
 
 class Message(models.Model):
-    TYPE_FHIR = 'fhir'
-
+    TYPE_FHIR = 'FHIR'
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     gateway = models.ForeignKey('Gateway', to_field="id", on_delete=models.PROTECT)
     participant = models.ForeignKey('participant.Participant', on_delete=models.PROTECT)
     type = models.CharField(max_length=30)
