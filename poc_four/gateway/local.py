@@ -29,6 +29,9 @@ def poll_and_confirm():
                     message_id = message.get("message_id")
                     print(f"Received message: {message_id}")
                     if message_id:
+                        print("Sending:")
+                        print(message.get("payload"))
+                        print(f"To: {message.get("destination")}")
                         # Send confirmation
                         confirmation_payload = {
                             "message_id": message_id
