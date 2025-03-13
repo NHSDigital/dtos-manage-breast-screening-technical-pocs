@@ -14,3 +14,5 @@ We have prior art of a 'gateway' machine running locally at screening sites and 
 2. Open image reader applications using a link and a protocol handler. [More...](./poc_two/README.md)
 
 3. Open image reader application using an XML-RPC call. [More...](./poc_three/README.md)   
+
+4. Send and receive messages to a 'gateway' application using an API call. [More...](./poc_four/README.md)
