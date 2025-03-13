@@ -2,8 +2,10 @@ import os
 from django.core.management.base import BaseCommand
 from participant.models import Participant
 from gateway.models import Gateway, Setting
+from provider.models import Provider, Clinic, ClinicSlot, Appointment
 from django.contrib.auth.models import User
 from django.db.utils import IntegrityError
+from datetime import datetime, time, timedelta, date
 
 
 class Command(BaseCommand):
@@ -24,15 +26,43 @@ class Command(BaseCommand):
         for record in records:
             Participant.objects.create(**record)
 
+
+        #TODO this should be Provider or maybe related to provider? Provider might have many settings?
         setting = Setting.objects.create(
-            name="Alpha Hospital Trust"
-            )
+                name="Alpha Hospital Trust"
+                )
 
         Gateway.objects.create(
-            setting = setting,
-            id = os.environ.get("GATEWAY_ID"),
-            order_url = "https://local-order-service/order"
-            )
+                setting = setting,
+                id = os.environ.get("GATEWAY_ID"),
+                order_url = "https://local-order-service/order"
+                )
+
+        provider = Provider.objects.create(
+                name="Alpha Hospital Trust"
+                )
+
+        clinic = provider.clinics.create(
+                date=date(2025, 8, 11)
+                )
+
+        participants = Participant.objects.all()
+
+        start_time = datetime.combine(clinic.date, time(9, 0, 0))
+        slot_duration = timedelta(minutes=15)
+
+        for participant in participants:
+            # Create the slot with a timedelta duration
+            clinic_slot = clinic.slots.create(
+                    start_time=start_time,
+                    duration=slot_duration
+                    )
+            clinic_slot.appointments.create(
+                    participant=participant
+                    )
+            # Increment start_time by the slot duration for the next iteration
+            start_time += slot_duration
+
             
         # Create a superuser if one doesn't exist
         try:
@@ -49,5 +79,3 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR("Error creating superuser!"))
 
         self.stdout.write(self.style.SUCCESS("Database seeding completed!"))
-
-

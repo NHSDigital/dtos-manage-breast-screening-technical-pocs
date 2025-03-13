@@ -2,19 +2,27 @@ from gateway.models import Message
 import uuid
 from datetime import datetime
 import json
+from provider.models import AppointmentState
 
 class CreateScreeningOrderGatewayMessage:
-    def __init__(self, participant, gateway):
+    def __init__(self, appointment, gateway):
         self.gateway = gateway
-        self.participant = participant
+        self.appointment = appointment
+        self.participant = appointment.participant
 
     @classmethod
-    def call(cls, participant, gateway):
-        return cls(participant, gateway).execute()
+    def call(cls, appointment, gateway):
+        return cls(appointment, gateway).execute()
 
 
     def execute(self):
         message_id = uuid.uuid4()
+
+        # set this here as we want the state change to be visible on the page. The message
+        # is sent asynchronously to the gateway
+        self.appointment.state = AppointmentState.SENT_TO_MODALITY.value
+        self.appointment.save(update_fields=["state"])
+
         return Message.objects.create(
                 id = message_id,
                 gateway = self.gateway,
