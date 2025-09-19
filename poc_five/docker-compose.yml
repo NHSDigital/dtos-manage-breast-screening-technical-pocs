@@ -1,0 +1,42 @@
+services:
+  db:
+    image: postgres:15
+    container_name: postgres_db
+    restart: always
+    ports:
+      - "5432:5432"  
+    networks:
+      - poc_network
+    env_file:
+      - .env
+    tmpfs:
+      # don't persist data, we want to start afresh for each POC demo
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  manage-screening:
+    build:
+      context: ./manage_screening
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    container_name: manage_screening
+    ports:
+      - "8000:8000"
+    networks:
+      - poc_network
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./manage_screening:/app
+      
+
+networks:
+  poc_network:
+    driver: bridge
+    name: poc_network
