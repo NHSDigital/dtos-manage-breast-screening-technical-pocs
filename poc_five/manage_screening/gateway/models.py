@@ -19,8 +19,26 @@ class Message(models.Model):
 
 class Gateway(models.Model):
     id = models.UUIDField(primary_key=True)
-    order_url = models.URLField()
+    order_url = models.CharField()
     setting = models.ForeignKey('Setting', on_delete=models.PROTECT)
+
+    # Azure Relay configuration fields
+    relay_namespace = models.CharField(
+        max_length=255,
+        help_text="Azure Relay namespace (e.g., myrelay.servicebus.windows.net)"
+    )
+    relay_hybrid_connection = models.CharField(
+        max_length=255,
+        help_text="Azure Relay hybrid connection name"
+    )
+    relay_key_name = models.CharField(
+        max_length=255,
+        help_text="Azure Relay shared access policy name"
+    )
+    relay_shared_access_key_variable_name = models.CharField(
+        max_length=255,
+        help_text="Environment variable name containing the shared access key"
+    )
 
     def __str__(self):
         return f'{self.id}'

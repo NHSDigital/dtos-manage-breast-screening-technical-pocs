@@ -35,7 +35,11 @@ class Command(BaseCommand):
         Gateway.objects.create(
                 setting = setting,
                 id = os.environ.get("GATEWAY_ID"),
-                order_url = "https://local-order-service/order"
+                order_url = "https://local-order-service/order",
+                relay_namespace = os.environ.get("AZURE_RELAY_NAMESPACE", "graham-relay-test.servicebus.windows.net"),
+                relay_hybrid_connection = os.environ.get("AZURE_RELAY_HYBRID_CONNECTION", "graham-relay-test-hc"),
+                relay_key_name = os.environ.get("AZURE_RELAY_KEY_NAME", "RootManageSharedAccessKey"),
+                relay_shared_access_key_variable_name = "AZURE_RELAY_SHARED_ACCESS_KEY"
                 )
 
         provider = Provider.objects.create(
