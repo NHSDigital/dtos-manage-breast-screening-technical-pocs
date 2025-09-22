@@ -1,7 +1,7 @@
-Screening Event Management - Technical POCs
+Manage breast screening - Technical POCs
 ===========================================
 
-This repository contains the technical POCs for the Screening Event Management team. We are currently in alpha and looking at options for integrating with on site screening hardware, predominantly within radiology initially.
+This repository contains the technical POCs for the manage breast screening service. The service is currently in private betaand examining options for integrating with on site screening hardware, predominantly within radiology initially.
 
 ## Can we securely integrate with hardware from a browser
 
