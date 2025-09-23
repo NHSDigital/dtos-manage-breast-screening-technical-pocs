@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime
 import json
 from provider.models import AppointmentState
+from .message_sender import send_message_to_relay
 
 class CreateScreeningOrderGatewayMessage:
     def __init__(self, appointment, gateway):
@@ -23,7 +24,8 @@ class CreateScreeningOrderGatewayMessage:
         self.appointment.state = AppointmentState.SENT_TO_MODALITY.value
         self.appointment.save(update_fields=["state"])
 
-        return Message.objects.create(
+        # Create the message in the database
+        message = Message.objects.create(
                 id = message_id,
                 gateway = self.gateway,
                 participant = self.participant,
@@ -31,6 +33,11 @@ class CreateScreeningOrderGatewayMessage:
                 destination = self.gateway.order_url,
                 payload = self.fhir_payload(message_id = message_id)
         )
+
+        # Send the message via Azure Relay
+        send_message_to_relay(message)
+
+        return message
     
     def fhir_payload(self, message_id):
         # This hasn't been validated and has been generated for a demo only

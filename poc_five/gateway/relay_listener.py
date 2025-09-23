@@ -43,27 +43,8 @@ def create_sas_token(service_namespace: str, entity_path: str, sas_key_name: str
     token = f"SharedAccessSignature sr={encoded_resource_uri}&sig={urllib.parse.quote_plus(signature)}&se={expiry}&skn={sas_key_name}"
     return token
 
-async def send_confirmation(message_id: str) -> bool:
-    """Send confirmation back to Django app via HTTP"""
-    try:
-        confirm_url = f"{DJANGO_BASE_URL}/gateway-messages/{GATEWAY_ID}/confirmations"
-        confirmation_payload = {"message_id": message_id}
-
-        loop = asyncio.get_event_loop()
-        # Use run_in_executor to make the blocking requests call async
-        response = await loop.run_in_executor(
-            None,
-            lambda: requests.post(confirm_url, json=confirmation_payload, timeout=5)
-        )
-        response.raise_for_status()
-        print(f"✅ Confirmed message: {message_id}")
-        return True
-    except requests.RequestException as e:
-        print(f"❌ Failed to confirm message {message_id}: {e}")
-        return False
-
-async def process_message(message_data: dict) -> None:
-    """Process a received message"""
+async def process_message(message_data: dict) -> dict:
+    """Process a received message and return confirmation"""
     message_id = message_data.get("message_id")
     payload = message_data.get("payload")
     destination = message_data.get("destination")
@@ -77,8 +58,10 @@ async def process_message(message_data: dict) -> None:
     # For now, we just simulate processing
     await asyncio.sleep(0.1)  # Simulate processing time
 
-    # Send confirmation back to Django app
-    await send_confirmation(message_id)
+    print(f"✅ Processed message: {message_id}")
+
+    # Return confirmation data
+    return {"status": "processed", "message_id": message_id}
 
 async def listen_for_messages():
     """Listen for messages from Azure Relay"""
@@ -118,11 +101,10 @@ async def listen_for_messages():
                                     client_message = await asyncio.wait_for(client_websocket.recv(), timeout=30)
                                     message_data = json.loads(client_message)
 
-                                    # Process the message
-                                    await process_message(message_data)
+                                    # Process the message and get confirmation
+                                    ack_response = await process_message(message_data)
 
-                                    # Send acknowledgment back to Django app
-                                    ack_response = {"status": "processed", "message_id": message_data.get("message_id")}
+                                    # Send acknowledgment back to Django app via the same connection
                                     await client_websocket.send(json.dumps(ack_response))
 
                                 except asyncio.TimeoutError:
