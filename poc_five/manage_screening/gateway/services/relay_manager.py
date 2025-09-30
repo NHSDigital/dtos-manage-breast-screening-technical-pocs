@@ -57,6 +57,28 @@ class RelayConnectionManager:
 
         return await get_gateway()
 
+    async def _update_message_confirmed(self, message_id: str):
+        """Update the message confirmed_at field in the database"""
+        from gateway.models import Message
+        from django.utils import timezone
+
+        @sync_to_async
+        def update_message():
+            try:
+                message = Message.objects.get(id=message_id)
+                message.confirmed_at = timezone.now()
+                message.save(update_fields=['confirmed_at'])
+                logger.info(f"Updated confirmed_at for message {message_id}")
+                return True
+            except Message.DoesNotExist:
+                logger.error(f"Message {message_id} not found for confirmation update")
+                return False
+            except Exception as e:
+                logger.error(f"Error updating confirmed_at for message {message_id}: {e}")
+                return False
+
+        await update_message()
+
     async def _create_relay_connection(self, gateway_id: str):
         """Create a new connection to Azure Relay for sending a message"""
         gateway = await self._get_gateway_config(gateway_id)
@@ -132,6 +154,10 @@ class RelayConnectionManager:
 
                 if response_data.get("status") == "processed":
                     logger.info(f"Message {message_data.get('message_id')} successfully processed by gateway {gateway_id}")
+
+                    # Update the message confirmed_at field
+                    await self._update_message_confirmed(message_data.get('message_id'))
+
                     return True
                 else:
                     logger.warning(f"Unexpected response from gateway {gateway_id}: {response_data}")
