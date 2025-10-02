@@ -16,3 +16,5 @@ We have prior art of a 'gateway' machine running locally at screening sites and 
 3. Open image reader application using an XML-RPC call. [More...](./poc_three/README.md)   
 
 4. Send and receive messages to a 'gateway' application using an API call. [More...](./poc_four/README.md)
+
+5. Send and receive messages to a 'gateway' application using Azure Relay. [More...](./poc_five/README.md)
