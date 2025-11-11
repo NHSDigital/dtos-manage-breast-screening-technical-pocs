@@ -1,0 +1,33 @@
+sequenceDiagram
+        actor Mammographer
+        
+        Mammographer->>Manage Web App: Awaiting images (creates GatewayMessage)
+        box Manage in NHSE Azure
+          participant Manage Web App
+          participant Manage API
+          participant Manage Gateway Connection
+        end
+        box Trust Network
+         participant Gateway
+         participant TIE/RIS
+         participant MWL Server
+         participant Modality
+         participant PACS
+        end
+        Manage Gateway Connection->>Gateway: Send GatewayMessage via relay socket
+        Gateway-->>Gateway: Extract payload, destination etc
+        Gateway->>TIE/RIS: Order mammogram
+        TIE/RIS->>MWL Server: Append to worklist
+        Modality<<->>MWL Server: Refresh worklist
+        Modality->>Mammographer: Check details
+        Mammographer->>Manage Web App: Confirm participant
+        Mammographer->>Modality: Take images
+        Modality->>PACS: Store images
+        PACS->>Gateway: Notify images taken
+        PACS->>Gateway: Images transferred to gateway
+        Gateway-->>Gateway: Extract metatdata, create thumbnails
+        Gateway->>Manage Gateway Connection: Notify images taken via relay socket
+        Gateway->>Manage API: POST thumbnails
+        Manage Web App->>Mammographer: Confirm images taken 
+        Gateway-->>Gateway: Delete DICOM versions
+     
