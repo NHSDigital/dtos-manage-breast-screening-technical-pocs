@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  orthanc-mwl:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: orthanc-mwl-gateway
+    ports:
+      # Orthanc Web UI and REST API
+      - "8042:8042"
+      # Orthanc main DICOM port
+      - "4242:4242"
+      # Modality Worklist / MPPS DICOM port
+      - "4243:4243"
+    volumes:
+      # Mount the scripts directory for easier development
+      - ./scripts:/scripts
+      # Mount the config for easier modification
+      - ./orthanc.json:/etc/orthanc/orthanc.json
+      # Persist Orthanc database
+      - orthanc-db:/var/lib/orthanc/db
+      # Persist logs
+      - orthanc-logs:/var/log/orthanc
+    environment:
+      - ORTHANC_CONFIG=/etc/orthanc/orthanc.json
+    restart: unless-stopped
+    networks:
+      - mwl-network
+
+volumes:
+  orthanc-db:
+    driver: local
+  orthanc-logs:
+    driver: local
+
+networks:
+  mwl-network:
+    driver: bridge
