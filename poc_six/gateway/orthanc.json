@@ -9,7 +9,7 @@
 
   // Enable the Python plugin
   "Plugins": [
-    "/usr/share/orthanc/plugins"
+    "/usr/share/orthanc/plugins-available/libOrthancPython.so"
   ],
 
   // Python plugin configuration
