@@ -24,6 +24,7 @@ from pydicom.uid import generate_uid
 # Import the worklist storage layer
 sys.path.insert(0, '/scripts')
 from worklist_storage import WorklistStorage
+from relay_event_sender import send_mpps_event_sync
 
 worklist_server = None
 managed_instances = {}
@@ -102,9 +103,16 @@ def handle_create(event):
 
         # Update database to record that this study acquisition has been started
         if storage and accession_number != 'UNKNOWN':
-            updated = storage.update_status(accession_number, 'IN_PROGRESS', ds.SOPInstanceUID)
-            if updated:
+            source_message_id = storage.update_status(accession_number, 'IN_PROGRESS', ds.SOPInstanceUID)
+            if source_message_id:
                 orthanc.LogWarning(f"Database updated: {accession_number} -> IN_PROGRESS")
+                # Send MPPS event back to Django via relay
+                send_mpps_event_sync(
+                    action_id=source_message_id,
+                    accession_number=accession_number,
+                    status='IN PROGRESS',
+                    mpps_instance_uid=ds.SOPInstanceUID
+                )
             else:
                 orthanc.LogWarning(f"Warning: Could not find accession {accession_number} in database")
 
@@ -142,9 +150,16 @@ def handle_set(event):
             sps = ds.ScheduledStepAttributesSequence[0]
             accession_number = sps.get('AccessionNumber', 'UNKNOWN')
             if accession_number != 'UNKNOWN':
-                updated = storage.update_status(accession_number, status)
-                if updated:
+                source_message_id = storage.update_status(accession_number, status)
+                if source_message_id:
                     orthanc.LogWarning(f"Database updated: {accession_number} -> {status}")
+                    # Send MPPS event back to Django via relay
+                    send_mpps_event_sync(
+                        action_id=source_message_id,
+                        accession_number=accession_number,
+                        status=status,
+                        mpps_instance_uid=req.RequestedSOPInstanceUID
+                    )
                 else:
                     orthanc.LogWarning(f"Warning: Could not find accession {accession_number} in database")
 

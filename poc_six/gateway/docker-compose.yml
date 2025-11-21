@@ -18,18 +18,48 @@ services:
       - ./orthanc.json:/etc/orthanc/orthanc.json
       # Persist Orthanc database
       - orthanc-db:/var/lib/orthanc/db
+      # Shared worklist database
+      - worklist-db:/var/lib/orthanc/worklist
       # Persist logs
       - orthanc-logs:/var/log/orthanc
+    env_file:
+      - .env
     environment:
       - ORTHANC_CONFIG=/etc/orthanc/orthanc.json
+      - WORKLIST_DB_PATH=/var/lib/orthanc/worklist/worklist.db
     restart: unless-stopped
     networks:
       - mwl-network
+
+  relay-listener:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: relay-listener
+    entrypoint: python3
+    command: /scripts/relay_listener.py
+    volumes:
+      # Mount the scripts directory for easier development
+      - ./scripts:/scripts
+      # Shared worklist database
+      - worklist-db:/var/lib/orthanc/worklist
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - WORKLIST_DB_PATH=/var/lib/orthanc/worklist/worklist.db
+    restart: unless-stopped
+    networks:
+      - mwl-network
+    depends_on:
+      - orthanc-mwl
 
 volumes:
   orthanc-db:
     driver: local
   orthanc-logs:
+    driver: local
+  worklist-db:
     driver: local
 
 networks:

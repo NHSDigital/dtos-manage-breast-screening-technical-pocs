@@ -3,3 +3,4 @@ psycopg2-binary~=2.9
 gunicorn~=22.0
 python-dotenv~=1.0
 jinja2~=3.0
+websockets~=15.0

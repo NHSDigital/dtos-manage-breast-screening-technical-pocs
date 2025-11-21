@@ -3,12 +3,16 @@
 
 FROM orthancteam/orthanc:25.11.0
 
-# Install Python dependencies for the worklist server and sqlite3 for DB initialization
+# Install uv for fast package installation
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+# Install sqlite3 and Python dependencies
 RUN apt-get update && \
-    apt-get install -y python3-pip sqlite3 && \
-    pip3 install --no-cache-dir --break-system-packages \
+    apt-get install -y sqlite3 && \
+    UV_BREAK_SYSTEM_PACKAGES=1 uv pip install --system --no-cache \
         pydicom==3.0.1 \
-        pynetdicom==3.0.4 && \
+        pynetdicom==3.0.4 \
+        websockets==15.0.1 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -18,6 +22,8 @@ RUN mkdir -p /scripts /var/lib/orthanc/db /var/log/orthanc
 # Copy the Python worklist server scripts
 COPY scripts/worklist_server.py /scripts/worklist_server.py
 COPY scripts/worklist_storage.py /scripts/worklist_storage.py
+COPY scripts/relay_listener.py /scripts/relay_listener.py
+COPY scripts/relay_event_sender.py /scripts/relay_event_sender.py
 COPY scripts/init_db.sql /scripts/init_db.sql
 
 # Copy Orthanc configuration

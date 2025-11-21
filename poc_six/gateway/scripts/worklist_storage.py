@@ -23,7 +23,7 @@ class WorklistStorage:
     The database schema must be initialized separately (see scripts/init_db.sql).
     """
 
-    def __init__(self, db_path: str = "/var/lib/orthanc/worklist.db"):
+    def __init__(self, db_path: str = "/var/lib/orthanc/worklist/worklist.db"):
         """
         Initialize the worklist storage.
 
@@ -183,7 +183,7 @@ class WorklistStorage:
         accession_number: str,
         status: str,
         mpps_instance_uid: Optional[str] = None
-    ) -> bool:
+    ) -> Optional[str]:
         """
         Update the status of a worklist item.
 
@@ -193,7 +193,7 @@ class WorklistStorage:
             mpps_instance_uid: Optional MPPS instance UID
 
         Returns:
-            True if item was updated, False if not found
+            source_message_id if item was updated, None if not found
         """
         with self._transaction() as conn:
             cursor = conn.execute("""
@@ -204,7 +204,15 @@ class WorklistStorage:
                 WHERE accession_number = ?
             """, (status, mpps_instance_uid, accession_number))
 
-            return cursor.rowcount > 0
+            if cursor.rowcount > 0:
+                # Fetch the source_message_id for the updated item
+                result = conn.execute(
+                    "SELECT source_message_id FROM worklist_items WHERE accession_number = ?",
+                    (accession_number,)
+                ).fetchone()
+                return result['source_message_id'] if result else None
+
+            return None
 
     def update_study_instance_uid(
         self,

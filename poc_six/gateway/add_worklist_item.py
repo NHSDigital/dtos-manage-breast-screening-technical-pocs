@@ -35,8 +35,8 @@ def main():
     parser.add_argument('--modality', default='MG', help='Modality code (default: MG)')
     parser.add_argument('--description', default='', help='Study description')
     parser.add_argument('--procedure-code', default='', help='Procedure code')
-    parser.add_argument('--db-path', default='/var/lib/orthanc/worklist.db',
-                        help='Path to database (default: /var/lib/orthanc/worklist.db)')
+    parser.add_argument('--db-path', default='/var/lib/orthanc/worklist/worklist.db',
+                        help='Path to database (default: /var/lib/orthanc/worklist/worklist.db)')
 
     args = parser.parse_args()
 
