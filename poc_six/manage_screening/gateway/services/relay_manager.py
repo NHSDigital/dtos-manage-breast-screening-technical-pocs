@@ -134,7 +134,8 @@ class RelayConnectionManager:
             )
 
             # Connect with compression disabled (Azure Relay doesn't support it)
-            websocket = await connect(url, compression=None)
+            # Use longer timeout for Azure Relay rendezvous pattern
+            websocket = await connect(url, compression=None, open_timeout=30)
             logger.info(f"Created relay connection for gateway {gateway_id}")
             return websocket
 
