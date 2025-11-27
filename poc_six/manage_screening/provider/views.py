@@ -1,4 +1,5 @@
 from django.shortcuts import render, get_object_or_404
+from django.http import JsonResponse
 from provider.models import Clinic, Appointment, AppointmentState
 from django.middleware.csrf import get_token
 from gateway.models import Gateway
@@ -19,20 +20,50 @@ def clinic_index(request):
 def get_clinic(request, clinic_id):
     clinic = get_object_or_404(Clinic, id=clinic_id)
     appointments = Appointment.objects.filter(clinic_slot__clinic=clinic).order_by("clinic_slot__start_time")
-    
+
     csrf_token = get_token(request)
-    headers = ["Time", "Participant", "Date of birth", ""]
+    headers = ["Time", "Participant", "Date of birth", "Status", ""]
     rows = [
                 [
                     {"text": appointment.clinic_slot.start_time},
-                    {"text": appointment.participant}, 
-                    {"text": appointment.participant.date_of_birth}, 
+                    {"text": appointment.participant},
+                    {"text": appointment.participant.date_of_birth},
+                    {"html": f'<span class="appointment-status" data-appointment-id="{appointment.id}">{format_status(appointment.state)}</span>'},
                     {"html": form_for(appointment.id, csrf_token, request)},
                 ] for appointment in appointments
             ]
-    
-    return render(request, "clinic/show.jinja", 
+
+    return render(request, "clinic/show.jinja",
                   {"clinic": clinic, "headers": headers, "rows": rows})
+
+def format_status(state):
+    """Format appointment state for display"""
+    status_map = {
+        'pending': ('Pending', 'nhsuk-tag--grey'),
+        'arrived': ('Arrived', 'nhsuk-tag--blue'),
+        'checked_in': ('Checked In', 'nhsuk-tag--blue'),
+        'sent_to_modality': ('Sent to Modality', 'nhsuk-tag--purple'),
+        'in_progress': ('In Progress', 'nhsuk-tag--yellow'),
+        'complete': ('Complete', 'nhsuk-tag--green'),
+        'cancelled': ('Cancelled', 'nhsuk-tag--red'),
+    }
+    label, tag_class = status_map.get(state, (state.replace('_', ' ').title(), ''))
+    return f'<strong class="nhsuk-tag {tag_class}">{label}</strong>'
+
+def appointment_statuses(request, clinic_id):
+    """API endpoint to get current appointment statuses for a clinic"""
+    clinic = get_object_or_404(Clinic, id=clinic_id)
+    appointments = Appointment.objects.filter(clinic_slot__clinic=clinic)
+
+    statuses = {
+        str(appointment.id): {
+            'state': appointment.state,
+            'html': format_status(appointment.state)
+        }
+        for appointment in appointments
+    }
+
+    return JsonResponse(statuses)
 
 def form_for(appointment_id, csrf_token, request):
     gateway_id = Gateway.objects.last().id # we'd need to think about how we get the correct gateway Id. Is there more than one per trust?

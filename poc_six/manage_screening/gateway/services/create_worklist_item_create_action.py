@@ -2,6 +2,7 @@ from gateway.models import GatewayAction
 import uuid
 from datetime import datetime, timezone
 from provider.models import AppointmentState
+from gateway.services.action_sender import send_action_to_relay
 
 
 class CreateWorklistItemCreateAction:
@@ -27,14 +28,15 @@ class CreateWorklistItemCreateAction:
         action = GatewayAction.objects.create(
             id=action_id,
             gateway=self.gateway,
-            type=GatewayAction.TYPE_WORKLIST_ADD,
+            type=GatewayAction.TYPE_WORKLIST_CREATE,
             payload=self.generate_payload(
                 action_id=action_id,
                 accession_number=accession_number,
             ),
         )
 
-        # Action is persisted locally - sending to gateway will be implemented in a future step
+        # Send the action to the gateway via Azure Relay (non-blocking)
+        send_action_to_relay(action)
 
         return action
 
@@ -63,7 +65,7 @@ class CreateWorklistItemCreateAction:
         payload = {
             "schema_version": 1,
             "action_id": str(action_id),
-            "action_type": "worklist.create_item",
+            "action_type": GatewayAction.TYPE_WORKLIST_CREATE,
             "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "source_system": "manage-breast-screening",
             "source_reference": {

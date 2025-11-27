@@ -4,7 +4,7 @@ set -e
 # Docker entrypoint script for Orthanc MWL Gateway
 # Initializes the SQLite worklist database before starting Orthanc
 
-DB_PATH="/var/lib/orthanc/worklist.db"
+DB_PATH="${WORKLIST_DB_PATH:-/var/lib/orthanc/worklist/worklist.db}"
 SCHEMA_PATH="/scripts/init_db.sql"
 
 echo "🚀 Starting Orthanc MWL Gateway..."

@@ -32,7 +32,9 @@ class AppointmentState(Enum):
     ARRIVED = 'arrived'
     CHECKED_IN = 'checked_in'
     SENT_TO_MODALITY = 'sent_to_modality'
+    IN_PROGRESS = 'in_progress'
     COMPLETE = 'complete'
+    CANCELLED = 'cancelled'
 
 class Appointment(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
