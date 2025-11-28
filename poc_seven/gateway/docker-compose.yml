@@ -43,32 +43,6 @@ services:
     networks:
       - mwl-network
 
-  # Orthanc DICOM server (kept for potential image storage/routing)
-  orthanc:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: orthanc-gateway
-    ports:
-      # Orthanc Web UI and REST API
-      - "8042:8042"
-      # Orthanc main DICOM port
-      - "4242:4242"
-    volumes:
-      # Mount the config for easier modification
-      - ./orthanc.json:/etc/orthanc/orthanc.json
-      # Persist Orthanc database
-      - orthanc-db:/var/lib/orthanc/db
-      # Persist logs
-      - orthanc-logs:/var/log/orthanc
-    env_file:
-      - .env
-    environment:
-      - ORTHANC_CONFIG=/etc/orthanc/orthanc.json
-    restart: unless-stopped
-    networks:
-      - mwl-network
-
   relay-listener:
     build:
       context: .
@@ -93,10 +67,6 @@ services:
       - worklist-server
 
 volumes:
-  orthanc-db:
-    driver: local
-  orthanc-logs:
-    driver: local
   worklist-db:
     driver: local
   worklist-logs:
