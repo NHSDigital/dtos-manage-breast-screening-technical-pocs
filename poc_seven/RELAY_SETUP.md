@@ -1,4 +1,4 @@
-# Azure Relay Setup for POC Six (and later)
+# Azure Relay Setup for POC Six
 
 POC Six uses **bidirectional communication** via Azure Relay with **two separate hybrid connections**.
 

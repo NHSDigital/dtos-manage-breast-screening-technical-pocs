@@ -1,0 +1,67 @@
+{
+  "Name": "Orthanc MWL Gateway",
+  "HttpPort": 8042,
+  "DicomPort": 4242,
+
+  // Custom configuration for MPPS/Worklist server
+  "MPPSAet": "ORTHANC_MWL",
+  "DicomPortMPPS": 4243,
+
+  // Enable the Python plugin
+  "Plugins": [
+    "/usr/share/orthanc/plugins-available/libOrthancPython.so"
+  ],
+
+  // Python plugin configuration
+  "PythonScript": "/scripts/worklist_server.py",
+  "PythonVerbose": true,
+
+  // DICOM settings
+  "DicomAet": "ORTHANC",
+  "DicomCheckCalledAet": false,
+  "DicomAlwaysAllowEcho": true,
+  "DicomAlwaysAllowStore": true,
+  "DicomAlwaysAllowFind": true,
+  "DicomAlwaysAllowMove": true,
+  "DicomAlwaysAllowGet": true,
+
+  // Remote DICOM modalities (configure as needed)
+  "DicomModalities": {
+    // Example: "MODALITY": ["MODALITY_AET", "modality_host", 104]
+  },
+
+  // Remote Orthanc peers (configure as needed)
+  "OrthancPeers": {
+  },
+
+  // Storage settings
+  "StorageDirectory": "/var/lib/orthanc/db",
+
+  // Logging
+  "LogLevel": "verbose",
+  "LogFile": "/var/log/orthanc/orthanc.log",
+
+  // Authentication (disabled for POC - enable in production!)
+  "AuthenticationEnabled": false,
+  "RegisteredUsers": {
+    "orthanc": "orthanc"
+  },
+
+  // HTTP settings
+  "RemoteAccessAllowed": true,
+  "HttpCompressionEnabled": true,
+
+  // DICOM TLS (disabled for POC)
+  "DicomTlsEnabled": false,
+
+  // Concurrent operations
+  "JobsHistorySize": 100,
+  "SaveJobs": true,
+
+  // Miscellaneous
+  "OverwriteInstances": false,
+  "LimitFindResults": 100,
+  "LimitFindInstances": 100,
+  "MaximumStorageSize": 0,
+  "MaximumPatientCount": 0
+}
