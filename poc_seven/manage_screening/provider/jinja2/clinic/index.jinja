@@ -1,0 +1,8 @@
+{% extends "layout.html" %}
+{% from 'components/molecules/table/macro.html' import table %}
+
+{% block content %}
+  <h1>Clinics</h1>
+
+  {{ table(headers, rows) }}
+{% endblock %}
