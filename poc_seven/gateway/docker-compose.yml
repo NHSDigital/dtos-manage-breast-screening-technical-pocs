@@ -21,6 +21,28 @@ services:
     networks:
       - mwl-network
 
+  # Standalone DICOM PACS Server (for image storage)
+  pacs-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.pacs
+    container_name: pacs-server
+    ports:
+      # PACS DICOM port (C-STORE, C-ECHO)
+      - "4244:4244"
+    volumes:
+      # Mount the scripts directory for easier development
+      - ./scripts:/scripts
+      # Persist DICOM storage
+      - pacs-storage:/var/lib/pacs/storage
+      # Persist logs
+      - pacs-logs:/var/log/pacs
+    env_file:
+      - .env
+    restart: unless-stopped
+    networks:
+      - mwl-network
+
   # Orthanc DICOM server (kept for potential image storage/routing)
   orthanc:
     build:
@@ -78,6 +100,10 @@ volumes:
   worklist-db:
     driver: local
   worklist-logs:
+    driver: local
+  pacs-storage:
+    driver: local
+  pacs-logs:
     driver: local
 
 networks:
