@@ -1,32 +1,44 @@
 services:
-  orthanc-mwl:
+  # Standalone DICOM Modality Worklist Server (no Orthanc dependency)
+  worklist-server:
     build:
       context: .
-      dockerfile: Dockerfile
-    container_name: orthanc-mwl-gateway
+      dockerfile: Dockerfile.worklist
+    container_name: worklist-server
     ports:
-      # Orthanc Web UI and REST API
-      - "8042:8042"
-      # Orthanc main DICOM port
-      - "4242:4242"
       # Modality Worklist / MPPS DICOM port
       - "4243:4243"
     volumes:
       # Mount the scripts directory for easier development
       - ./scripts:/scripts
-      # Mount the config for easier modification
-      - ./orthanc.json:/etc/orthanc/orthanc.json
-      # Persist Orthanc database
-      - orthanc-db:/var/lib/orthanc/db
-      # Shared worklist database
-      - worklist-db:/var/lib/orthanc/worklist
+      # Persist worklist database
+      - worklist-db:/var/lib/worklist
       # Persist logs
-      - orthanc-logs:/var/log/orthanc
+      - worklist-logs:/var/log/worklist
     env_file:
       - .env
-    environment:
-      - ORTHANC_CONFIG=/etc/orthanc/orthanc.json
-      - WORKLIST_DB_PATH=/var/lib/orthanc/worklist/worklist.db
+    restart: unless-stopped
+    networks:
+      - mwl-network
+
+  # Standalone DICOM PACS Server (for image storage)
+  pacs-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.pacs
+    container_name: pacs-server
+    ports:
+      # PACS DICOM port (C-STORE, C-ECHO)
+      - "4244:4244"
+    volumes:
+      # Mount the scripts directory for easier development
+      - ./scripts:/scripts
+      # Persist DICOM storage
+      - pacs-storage:/var/lib/pacs/storage
+      # Persist logs
+      - pacs-logs:/var/log/pacs
+    env_file:
+      - .env
     restart: unless-stopped
     networks:
       - mwl-network
@@ -42,24 +54,26 @@ services:
       # Mount the scripts directory for easier development
       - ./scripts:/scripts
       # Shared worklist database
-      - worklist-db:/var/lib/orthanc/worklist
+      - worklist-db:/var/lib/worklist
     env_file:
       - .env
     environment:
       - PYTHONUNBUFFERED=1
-      - WORKLIST_DB_PATH=/var/lib/orthanc/worklist/worklist.db
+      - WORKLIST_DB_PATH=/var/lib/worklist/worklist.db
     restart: unless-stopped
     networks:
       - mwl-network
     depends_on:
-      - orthanc-mwl
+      - worklist-server
 
 volumes:
-  orthanc-db:
-    driver: local
-  orthanc-logs:
-    driver: local
   worklist-db:
+    driver: local
+  worklist-logs:
+    driver: local
+  pacs-storage:
+    driver: local
+  pacs-logs:
     driver: local
 
 networks:

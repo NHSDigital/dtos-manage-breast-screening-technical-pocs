@@ -1,0 +1,43 @@
+# Dockerfile for Standalone DICOM PACS Server
+FROM python:3.12-slim
+
+# Install uv for fast package installation
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    sqlite3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create working directory
+WORKDIR /app
+
+# Create directories for scripts and data
+RUN mkdir -p /scripts /var/lib/pacs/storage /var/log/pacs
+
+# Install Python dependencies using uv
+RUN UV_BREAK_SYSTEM_PACKAGES=1 uv pip install --system --no-cache \
+    pydicom==3.0.1 \
+    pynetdicom==3.0.4
+
+# Copy PACS server scripts
+COPY scripts/pacs_server.py /scripts/
+COPY scripts/pacs_storage.py /scripts/
+COPY scripts/init_pacs_db.sql /scripts/
+
+# Copy entrypoint script
+COPY docker-entrypoint-pacs.sh /app/
+RUN chmod +x /app/docker-entrypoint-pacs.sh /scripts/pacs_server.py
+
+# Expose DICOM port for PACS
+EXPOSE 4244
+
+# Set environment variables with defaults
+ENV PACS_AET=SCREENING_PACS \
+    PACS_PORT=4244 \
+    PACS_STORAGE_PATH=/var/lib/pacs/storage \
+    PACS_DB_PATH=/var/lib/pacs/pacs.db \
+    LOG_LEVEL=INFO
+
+ENTRYPOINT ["/app/docker-entrypoint-pacs.sh"]
+CMD ["python3", "/scripts/pacs_server.py"]
