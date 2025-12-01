@@ -14,28 +14,23 @@ from pathlib import Path
 from threading import Lock
 from typing import Optional, Dict, List
 
-from thumbnail_generator import generate_thumbnail
-
 logger = logging.getLogger('pacs_storage')
 
 
 class PACSStorage:
     """Thread-safe PACS storage manager with hash-based file organization."""
 
-    def __init__(self, db_path: str = "/var/lib/pacs/pacs.db", storage_root: str = "/var/lib/pacs/storage", thumbnail_root: str = "/var/lib/pacs/thumbnails"):
+    def __init__(self, db_path: str = "/var/lib/pacs/pacs.db", storage_root: str = "/var/lib/pacs/storage"):
         """
         Initialize PACS storage.
 
         Args:
             db_path: Path to SQLite database
             storage_root: Root directory for DICOM file storage
-            thumbnail_root: Root directory for thumbnail images
         """
         self.db_path = db_path
         self.storage_root = Path(storage_root)
-        self.thumbnail_root = Path(thumbnail_root)
         self.storage_root.mkdir(parents=True, exist_ok=True)
-        self.thumbnail_root.mkdir(parents=True, exist_ok=True)
         self._lock = Lock()
 
         # Ensure database is initialized
@@ -180,23 +175,6 @@ class PACSStorage:
                 conn.commit()
 
             logger.info(f"Stored instance: {sop_instance_uid} -> {rel_path} ({file_size} bytes)")
-
-            # Generate thumbnail in background (non-blocking)
-            try:
-                thumbnail_path = generate_thumbnail(
-                    abs_path,
-                    self.thumbnail_root,
-                    sop_instance_uid,
-                    quality=25,
-                    height=188
-                )
-                if thumbnail_path:
-                    logger.info(f"Thumbnail generated: {thumbnail_path}")
-                else:
-                    logger.warning(f"Failed to generate thumbnail for {sop_instance_uid}")
-            except Exception as e:
-                logger.error(f"Error generating thumbnail: {e}")
-                # Don't fail the storage operation if thumbnail generation fails
 
             return str(abs_path)
 

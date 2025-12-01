@@ -33,6 +33,8 @@ services:
     volumes:
       # Mount the scripts directory for easier development
       - ./scripts:/scripts
+      # Persist PACS database and metadata
+      - pacs-db:/var/lib/pacs
       # Persist DICOM storage
       - pacs-storage:/var/lib/pacs/storage
       # Mount thumbnails to local directory for easy access
@@ -68,10 +70,48 @@ services:
     depends_on:
       - worklist-server
 
+  # Thumbnail Generator Service (polls PACS for pending thumbnails)
+  thumbnail-generator:
+    build:
+      context: .
+      dockerfile: Dockerfile.pacs
+    container_name: thumbnail-generator
+    entrypoint: python3
+    command: /scripts/thumbnail_watcher.py
+    volumes:
+      # Mount the scripts directory for easier development
+      - ./scripts:/scripts
+      # Shared PACS storage (read-only for DICOM files)
+      - pacs-storage:/var/lib/pacs/storage:ro
+      # Shared PACS database
+      - pacs-db:/var/lib/pacs
+      # Mount thumbnails to local directory
+      - ./pacs_data/thumbnails:/var/lib/pacs/thumbnails
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/scripts
+      - PACS_DB_PATH=/var/lib/pacs/pacs.db
+      - PACS_STORAGE_ROOT=/var/lib/pacs/storage
+      - THUMBNAIL_ROOT=/var/lib/pacs/thumbnails
+      - THUMBNAIL_POLL_INTERVAL=5
+      - THUMBNAIL_BATCH_SIZE=10
+      - THUMBNAIL_QUALITY=25
+      - THUMBNAIL_HEIGHT=188
+      - LOG_LEVEL=INFO
+    restart: unless-stopped
+    networks:
+      - mwl-network
+    depends_on:
+      - pacs-server
+
 volumes:
   worklist-db:
     driver: local
   worklist-logs:
+    driver: local
+  pacs-db:
     driver: local
   pacs-storage:
     driver: local
