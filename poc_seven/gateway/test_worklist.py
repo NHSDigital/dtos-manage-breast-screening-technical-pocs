@@ -217,8 +217,8 @@ Examples:
                         help='Worklist server hostname (default: localhost)')
     parser.add_argument('-p', '--port', type=int, default=4243,
                         help='Worklist server port (default: 4243)')
-    parser.add_argument('-a', '--aet', default='ORTHANC_MWL',
-                        help='Worklist server AE Title (default: ORTHANC_MWL)')
+    parser.add_argument('-a', '--aet', default='SCREENING_MWL',
+                        help='Worklist server AE Title (default: SCREENING_MWL)')
     parser.add_argument('-m', '--modality', default='MG',
                         help='Modality to query (default: MG)')
     parser.add_argument('-d', '--date',

@@ -1,0 +1,44 @@
+# Dockerfile for Standalone DICOM Modality Worklist Server
+FROM python:3.12-slim
+
+# Install uv for fast package installation
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    sqlite3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create working directory
+WORKDIR /app
+
+# Create directories for scripts and data
+RUN mkdir -p /scripts /var/lib/worklist /var/log/worklist
+
+# Install Python dependencies using uv
+RUN UV_BREAK_SYSTEM_PACKAGES=1 uv pip install --system --no-cache \
+    pydicom==3.0.1 \
+    pynetdicom==3.0.4 \
+    websockets==15.0.1
+
+# Copy scripts
+COPY scripts/standalone_worklist_server.py /scripts/
+COPY scripts/worklist_storage.py /scripts/
+COPY scripts/relay_event_sender.py /scripts/
+COPY scripts/init_db.sql /scripts/
+
+# Copy entrypoint script
+COPY docker-entrypoint-worklist.sh /app/
+RUN chmod +x /app/docker-entrypoint-worklist.sh
+
+# Expose DICOM port for worklist/MPPS
+EXPOSE 4243
+
+# Set environment variables with defaults
+ENV WORKLIST_AET=SCREENING_MWL \
+    WORKLIST_PORT=4243 \
+    WORKLIST_DB_PATH=/var/lib/worklist/worklist.db \
+    LOG_LEVEL=INFO
+
+ENTRYPOINT ["/app/docker-entrypoint-worklist.sh"]
+CMD ["python3", "/scripts/standalone_worklist_server.py"]
