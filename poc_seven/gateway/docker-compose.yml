@@ -35,6 +35,8 @@ services:
       - ./scripts:/scripts
       # Persist DICOM storage
       - pacs-storage:/var/lib/pacs/storage
+      # Mount thumbnails to local directory for easy access
+      - ./pacs_data/thumbnails:/var/lib/pacs/thumbnails
       # Persist logs
       - pacs-logs:/var/log/pacs
     env_file:
