@@ -82,6 +82,8 @@ def handle_store(event):
             'series_description': str(getattr(ds, 'SeriesDescription', '')),
             'modality': str(getattr(ds, 'Modality', '')),
             'instance_number': str(getattr(ds, 'InstanceNumber', '')),
+            'view_position': str(getattr(ds, 'ViewPosition', '')),
+            'laterality': str(getattr(ds, 'ImageLaterality', '') or getattr(ds, 'Laterality', '')),
             'transfer_syntax_uid': str(getattr(ds.file_meta, 'TransferSyntaxUID', '')),
             'sop_class_uid': str(getattr(ds, 'SOPClassUID', '')),
             'rows': int(getattr(ds, 'Rows', 0)) if hasattr(ds, 'Rows') else None,

@@ -55,6 +55,11 @@ def create_test_dicom_file(modality='MG'):
     ds.SOPInstanceUID = file_meta.MediaStorageSOPInstanceUID
     ds.InstanceNumber = "1"
 
+    # Mammography-specific fields (if modality is MG)
+    if modality == 'MG':
+        ds.ViewPosition = "CC"  # Cranio-Caudal view
+        ds.ImageLaterality = "R"  # Right breast
+
     # Minimal image data (required for storage)
     ds.SamplesPerPixel = 1
     ds.PhotometricInterpretation = "MONOCHROME2"
