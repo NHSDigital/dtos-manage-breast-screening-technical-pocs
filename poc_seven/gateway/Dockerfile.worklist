@@ -35,7 +35,7 @@ RUN chmod +x /app/docker-entrypoint-worklist.sh
 EXPOSE 4243
 
 # Set environment variables with defaults
-ENV WORKLIST_AET=ORTHANC_MWL \
+ENV WORKLIST_AET=SCREENING_MWL \
     WORKLIST_PORT=4243 \
     WORKLIST_DB_PATH=/var/lib/worklist/worklist.db \
     LOG_LEVEL=INFO

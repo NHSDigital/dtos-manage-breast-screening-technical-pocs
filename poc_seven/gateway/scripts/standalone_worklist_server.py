@@ -6,7 +6,7 @@ This script implements a DICOM worklist server with Modality Performed Procedure
 support as a standalone Python application using pydicom and pynetdicom.
 
 Configuration via environment variables:
-- WORKLIST_AET: the AET of this worklist server (default: "ORTHANC_MWL")
+- WORKLIST_AET: the AET of this worklist server (default: "SCREENING_MWL")
 - WORKLIST_PORT: the port to be used (default: 4243)
 - WORKLIST_DB_PATH: path to SQLite database (default: "/var/lib/worklist/worklist.db")
 - LOG_LEVEL: logging level (default: "INFO")
