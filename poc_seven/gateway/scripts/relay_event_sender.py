@@ -157,6 +157,41 @@ class RelayEventSender:
             self._connection = None
             return False
 
+    async def send_image_event(self, message_dict: Dict) -> bool:
+        """
+        Send an image_received event to Django.
+
+        Args:
+            message_dict: The complete image_received message dictionary
+
+        Returns:
+            True if sent successfully, False otherwise
+        """
+        try:
+            conn = await self._ensure_connection()
+
+            # Send the event (message_dict already has proper structure)
+            await conn.send(json.dumps(message_dict))
+
+            sop_uid = message_dict.get("parameters", {}).get("image", {}).get("sop_instance_uid", "unknown")
+            logger.info(f"Sent image event: sop_instance_uid={sop_uid}")
+
+            # Wait for acknowledgment (with short timeout)
+            try:
+                response = await asyncio.wait_for(conn.recv(), timeout=5)
+                response_data = json.loads(response)
+                logger.info(f"Received acknowledgment: {response_data}")
+                return True
+            except asyncio.TimeoutError:
+                logger.warning("Timeout waiting for acknowledgment (event likely delivered)")
+                return True  # Still consider it sent
+
+        except Exception as e:
+            logger.error(f"Error sending image event: {e}")
+            # Clear connection on error
+            self._connection = None
+            return False
+
     async def close(self):
         """Close the relay connection."""
         if self._connection:
@@ -213,6 +248,41 @@ def send_mpps_event_sync(
             )
         except Exception as e:
             logger.error(f"Error in background event sender: {e}")
+        finally:
+            loop.close()
+
+    # Start the sending in a background thread
+    thread = threading.Thread(target=run_in_thread, daemon=True)
+    thread.start()
+
+    return True
+
+
+def send_image_event_sync(message_dict: Dict) -> bool:
+    """
+    Synchronous wrapper for sending image events.
+
+    This function can be called from synchronous code (like image_listener.py).
+    It runs the async send in a background thread to avoid blocking the image processing.
+
+    Args:
+        message_dict: The complete image_received message dictionary
+
+    Returns:
+        True (always returns immediately, actual sending happens in background)
+    """
+    import threading
+
+    def run_in_thread():
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            sender = get_event_sender()
+            loop.run_until_complete(
+                sender.send_image_event(message_dict)
+            )
+        except Exception as e:
+            logger.error(f"Error in background image event sender: {e}")
         finally:
             loop.close()
 
