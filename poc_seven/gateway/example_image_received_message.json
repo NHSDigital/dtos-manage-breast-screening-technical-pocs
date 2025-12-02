@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "message_id": "<uuid-string>",
+  "message_type": "study.image_received",
+  "timestamp": "2025-12-01T16:35:00Z",
+  "source_system": "gateway-pacs",
+  "source_reference": {
+    "action_id": "<uuid-string>"
+  },
+  "parameters": {
+    "participant": {
+      "nhs_number": "<nhs-number>",
+      "patient_name": "LASTNAME^FIRSTNAME"
+    },
+    "study": {
+      "accession_number": "ACC-20251201-A1B2",
+      "study_instance_uid": "<dicom-study-uid>",
+      "modality": "MG",
+      "study_date": "20251201",
+      "study_time": "103500",
+      "study_description": "Screening Mammography"
+    },
+    "series": {
+      "series_instance_uid": "<dicom-series-uid>",
+      "series_number": "1",
+      "series_description": "Right Breast CC View"
+    },
+    "image": {
+      "sop_instance_uid": "<dicom-sop-instance-uid>",
+      "instance_number": "1",
+      "dimensions": {
+        "rows": 2048,
+        "columns": 1536
+      },
+      "acquisition": {
+        "view_position": "CC",
+        "laterality": "R"
+      },
+      "thumbnail": {
+        "data": "<base64-encoded-jpeg-string>",
+        "format": "jpeg",
+        "width": 256,
+        "height": 256
+      },
+      "received_at": "2025-12-01T16:35:00Z"
+    }
+  }
+}

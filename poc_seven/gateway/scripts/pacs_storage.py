@@ -138,6 +138,7 @@ class PACSStorage:
                         accession_number, study_date, study_time, study_description,
                         series_number, series_description, modality,
                         instance_number,
+                        view_position, laterality,
                         transfer_syntax_uid, sop_class_uid,
                         rows, columns,
                         source_aet, status
@@ -148,6 +149,7 @@ class PACSStorage:
                         ?, ?, ?, ?,
                         ?, ?, ?,
                         ?,
+                        ?, ?,
                         ?, ?,
                         ?, ?,
                         ?, 'STORED'
@@ -166,6 +168,8 @@ class PACSStorage:
                     metadata.get('series_description'),
                     metadata.get('modality'),
                     metadata.get('instance_number'),
+                    metadata.get('view_position'),
+                    metadata.get('laterality'),
                     metadata.get('transfer_syntax_uid'),
                     metadata.get('sop_class_uid'),
                     metadata.get('rows'),

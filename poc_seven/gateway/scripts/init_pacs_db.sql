@@ -30,6 +30,10 @@ CREATE TABLE IF NOT EXISTS stored_instances (
     -- Instance level metadata
     instance_number TEXT,
 
+    -- Mammography specific metadata
+    view_position TEXT,                   -- CC, MLO, etc.
+    laterality TEXT,                      -- L, R
+
     -- Transfer syntax and image info
     transfer_syntax_uid TEXT,
     sop_class_uid TEXT NOT NULL,
@@ -60,6 +64,8 @@ CREATE INDEX IF NOT EXISTS idx_study_date ON stored_instances(study_date);
 CREATE INDEX IF NOT EXISTS idx_modality ON stored_instances(modality);
 CREATE INDEX IF NOT EXISTS idx_received_at ON stored_instances(received_at);
 CREATE INDEX IF NOT EXISTS idx_storage_hash ON stored_instances(storage_hash);
+CREATE INDEX IF NOT EXISTS idx_view_position ON stored_instances(view_position);
+CREATE INDEX IF NOT EXISTS idx_laterality ON stored_instances(laterality);
 CREATE INDEX IF NOT EXISTS idx_thumbnail_status ON stored_instances(thumbnail_status);
 
 -- Study-level summary view (for faster study queries)
