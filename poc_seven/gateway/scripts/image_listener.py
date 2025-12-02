@@ -226,8 +226,8 @@ def build_image_received_message(
                     "columns": instance.get("columns")
                 },
                 "acquisition": {
-                    "view_position": None,  # TODO: Extract from DICOM if needed
-                    "laterality": None      # TODO: Extract from DICOM if needed
+                    "view_position": instance.get("view_position"),
+                    "laterality": instance.get("laterality")
                 },
                 "received_at": instance.get("received_at")
             }
