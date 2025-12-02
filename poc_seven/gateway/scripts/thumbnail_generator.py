@@ -34,17 +34,8 @@ def generate_thumbnail(
         Path to generated thumbnail, or None if generation failed
     """
     try:
-        # Compute thumbnail path using same hash structure as storage
-        hash_hex = hashlib.sha256(sop_instance_uid.encode()).hexdigest()
-        level1 = hash_hex[:2]
-        level2 = hash_hex[2:4]
-        filename = f"{hash_hex[:16]}.jpg"
-
-        # Create directory structure
-        thumbnail_dir = thumbnail_root / level1 / level2
-        thumbnail_dir.mkdir(parents=True, exist_ok=True)
-
-        thumbnail_path = thumbnail_dir / filename
+        thumbnail_path = get_thumbnail_path(thumbnail_root, sop_instance_uid)
+        thumbnail_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Build dcm2img command
         # +oj: Output JPEG
