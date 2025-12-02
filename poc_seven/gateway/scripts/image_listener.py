@@ -35,7 +35,7 @@ PACS_DB_PATH = os.getenv("PACS_DB_PATH", "/var/lib/pacs/pacs.db")
 PACS_STORAGE_ROOT = Path(os.getenv("PACS_STORAGE_ROOT", "/var/lib/pacs/storage"))
 THUMBNAIL_ROOT = Path(os.getenv("THUMBNAIL_ROOT", "/var/lib/pacs/thumbnails"))
 WORKLIST_DB_PATH = os.getenv("WORKLIST_DB_PATH", "/var/lib/worklist/worklist.db")
-POLL_INTERVAL = int(os.getenv("IMAGE_POLL_INTERVAL", "5"))  # seconds
+POLL_INTERVAL = int(os.getenv("IMAGE_POLL_INTERVAL", "2"))  # seconds
 BATCH_SIZE = int(os.getenv("IMAGE_BATCH_SIZE", "10"))
 THUMBNAIL_QUALITY = int(os.getenv("THUMBNAIL_QUALITY", "25"))
 THUMBNAIL_HEIGHT = int(os.getenv("THUMBNAIL_HEIGHT", "188"))
@@ -352,21 +352,10 @@ def run_listener():
     # Ensure thumbnail directory exists
     THUMBNAIL_ROOT.mkdir(parents=True, exist_ok=True)
 
-    consecutive_empty_polls = 0
-
     while not shutdown_requested:
         try:
-            processed = process_pending_images()
-
-            if processed == 0:
-                consecutive_empty_polls += 1
-                # Gradually increase sleep time when idle, up to POLL_INTERVAL
-                sleep_time = min(consecutive_empty_polls * 1, POLL_INTERVAL)
-                time.sleep(sleep_time)
-            else:
-                consecutive_empty_polls = 0
-                # Short sleep between batches when busy
-                time.sleep(0.5)
+            process_pending_images()
+            time.sleep(POLL_INTERVAL)
 
         except KeyboardInterrupt:
             logger.info("Keyboard interrupt received")

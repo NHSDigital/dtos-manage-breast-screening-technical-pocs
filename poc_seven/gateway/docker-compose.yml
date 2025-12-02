@@ -98,7 +98,7 @@ services:
       - PACS_STORAGE_ROOT=/var/lib/pacs/storage
       - THUMBNAIL_ROOT=/var/lib/pacs/thumbnails
       - WORKLIST_DB_PATH=/var/lib/worklist/worklist.db
-      - IMAGE_POLL_INTERVAL=5
+      - IMAGE_POLL_INTERVAL=2
       - IMAGE_BATCH_SIZE=10
       - THUMBNAIL_QUALITY=25
       - THUMBNAIL_HEIGHT=188
