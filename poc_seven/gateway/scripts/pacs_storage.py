@@ -179,6 +179,7 @@ class PACSStorage:
                 conn.commit()
 
             logger.info(f"Stored instance: {sop_instance_uid} -> {rel_path} ({file_size} bytes)")
+
             return str(abs_path)
 
     def instance_exists(self, sop_instance_uid: str) -> bool:

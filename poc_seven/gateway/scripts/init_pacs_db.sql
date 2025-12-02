@@ -47,6 +47,11 @@ CREATE TABLE IF NOT EXISTS stored_instances (
     -- Status tracking
     status TEXT DEFAULT 'STORED' CHECK(status IN ('STORED', 'ARCHIVED', 'DELETED')),
 
+    -- Thumbnail tracking
+    thumbnail_status TEXT DEFAULT 'PENDING' CHECK(thumbnail_status IN ('PENDING', 'GENERATED', 'FAILED', 'SKIP')),
+    thumbnail_generated_at TEXT,
+    thumbnail_error TEXT,
+
     UNIQUE(storage_path)
 );
 
@@ -61,6 +66,7 @@ CREATE INDEX IF NOT EXISTS idx_received_at ON stored_instances(received_at);
 CREATE INDEX IF NOT EXISTS idx_storage_hash ON stored_instances(storage_hash);
 CREATE INDEX IF NOT EXISTS idx_view_position ON stored_instances(view_position);
 CREATE INDEX IF NOT EXISTS idx_laterality ON stored_instances(laterality);
+CREATE INDEX IF NOT EXISTS idx_thumbnail_status ON stored_instances(thumbnail_status);
 
 -- Study-level summary view (for faster study queries)
 CREATE VIEW IF NOT EXISTS study_summary AS

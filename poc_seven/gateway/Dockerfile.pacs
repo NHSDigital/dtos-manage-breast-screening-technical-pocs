@@ -7,13 +7,14 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     sqlite3 \
+    dcmtk \
     && rm -rf /var/lib/apt/lists/*
 
 # Create working directory
 WORKDIR /app
 
 # Create directories for scripts and data
-RUN mkdir -p /scripts /var/lib/pacs/storage /var/log/pacs
+RUN mkdir -p /scripts /var/lib/pacs/storage /var/lib/pacs/thumbnails /var/log/pacs
 
 # Install Python dependencies using uv
 RUN UV_BREAK_SYSTEM_PACKAGES=1 uv pip install --system --no-cache \
@@ -23,6 +24,7 @@ RUN UV_BREAK_SYSTEM_PACKAGES=1 uv pip install --system --no-cache \
 # Copy PACS server scripts
 COPY scripts/pacs_server.py /scripts/
 COPY scripts/pacs_storage.py /scripts/
+COPY scripts/thumbnail_generator.py /scripts/
 COPY scripts/init_pacs_db.sql /scripts/
 
 # Copy entrypoint script
