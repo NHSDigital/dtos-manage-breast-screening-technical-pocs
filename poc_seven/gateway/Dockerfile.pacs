@@ -20,7 +20,6 @@ RUN mkdir -p /scripts /var/lib/pacs/storage /var/lib/pacs/thumbnails /var/log/pa
 RUN UV_BREAK_SYSTEM_PACKAGES=1 uv pip install --system --no-cache \
     pydicom==3.0.1 \
     pynetdicom==3.0.4 \
-    Pillow==11.0.0 \
     websockets==14.1
 
 # Copy PACS server scripts

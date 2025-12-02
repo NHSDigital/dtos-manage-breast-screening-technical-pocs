@@ -137,23 +137,6 @@ def encode_thumbnail_base64(thumbnail_path: Path) -> Optional[str]:
         return None
 
 
-def get_thumbnail_dimensions(thumbnail_path: Path) -> tuple[int, int]:
-    """
-    Get width and height of thumbnail image.
-
-    Args:
-        thumbnail_path: Path to thumbnail JPEG file
-
-    Returns:
-        Tuple of (width, height), or (0, 0) if cannot determine
-    """
-    try:
-        from PIL import Image
-        with Image.open(thumbnail_path) as img:
-            return img.size
-    except Exception as e:
-        logger.warning(f"Could not determine thumbnail dimensions: {e}")
-        return (0, 0)
 
 
 def get_action_id_for_accession(accession_number: Optional[str]) -> Optional[str]:
@@ -195,7 +178,6 @@ def get_action_id_for_accession(accession_number: Optional[str]) -> Optional[str
 def build_image_received_message(
     instance: dict,
     thumbnail_b64: Optional[str],
-    thumbnail_dims: tuple[int, int],
     action_id: Optional[str]
 ) -> dict:
     """
@@ -204,7 +186,6 @@ def build_image_received_message(
     Args:
         instance: Dictionary of instance metadata from database
         thumbnail_b64: Base64 encoded thumbnail, or None if not available
-        thumbnail_dims: Tuple of (width, height) for thumbnail
         action_id: Optional action_id to link back to originating worklist action
 
     Returns:
@@ -257,9 +238,7 @@ def build_image_received_message(
     if thumbnail_b64:
         message["parameters"]["image"]["thumbnail"] = {
             "data": thumbnail_b64,
-            "format": "jpeg",
-            "width": thumbnail_dims[0],
-            "height": thumbnail_dims[1]
+            "format": "jpeg"
         }
 
     return message
