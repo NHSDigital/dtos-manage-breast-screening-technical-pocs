@@ -188,6 +188,12 @@ STATICFILES_DIRS = (
     BASE_DIR / 'assets',
     )
 
+# Media files (User uploaded content - PACS images/thumbnails)
+# https://docs.djangoproject.com/en/5.1/howto/static-files/
+
+MEDIA_URL = '/pacs-images/'
+MEDIA_ROOT = BASE_DIR / 'pacs_images'
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

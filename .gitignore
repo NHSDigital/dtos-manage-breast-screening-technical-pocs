@@ -6,3 +6,4 @@ __pycache__/
 
 # PACS data directory (thumbnails and runtime data)
 poc_seven/gateway/pacs_data/
+poc_seven/manage_screening/pacs_images/
