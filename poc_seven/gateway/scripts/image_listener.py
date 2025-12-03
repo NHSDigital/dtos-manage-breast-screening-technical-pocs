@@ -19,6 +19,7 @@ from typing import Optional
 import uuid
 from datetime import datetime, timezone
 
+from PIL import Image
 from relay_event_sender import send_image_event_sync
 from thumbnail_generator import generate_thumbnail
 
@@ -137,6 +138,22 @@ def encode_thumbnail_base64(thumbnail_path: Path) -> Optional[str]:
         return None
 
 
+def get_thumbnail_dimensions(thumbnail_path: Path) -> tuple[int, int]:
+    """
+    Get dimensions of a JPEG thumbnail.
+
+    Args:
+        thumbnail_path: Path to thumbnail JPEG file
+
+    Returns:
+        Tuple of (width, height), or (0, 0) if unable to read
+    """
+    try:
+        with Image.open(thumbnail_path) as img:
+            return img.size
+    except Exception as e:
+        logger.error(f"Error reading thumbnail dimensions: {e}")
+        return (0, 0)
 
 
 def get_action_id_for_accession(accession_number: Optional[str]) -> Optional[str]:
@@ -178,6 +195,7 @@ def get_action_id_for_accession(accession_number: Optional[str]) -> Optional[str
 def build_image_received_message(
     instance: dict,
     thumbnail_b64: Optional[str],
+    thumbnail_dims: tuple[int, int],
     action_id: Optional[str]
 ) -> dict:
     """
@@ -186,6 +204,7 @@ def build_image_received_message(
     Args:
         instance: Dictionary of instance metadata from database
         thumbnail_b64: Base64 encoded thumbnail, or None if not available
+        thumbnail_dims: Tuple of (width, height) for the thumbnail
         action_id: Optional action_id to link back to originating worklist action
 
     Returns:
@@ -238,7 +257,9 @@ def build_image_received_message(
     if thumbnail_b64:
         message["parameters"]["image"]["thumbnail"] = {
             "data": thumbnail_b64,
-            "format": "jpeg"
+            "format": "jpeg",
+            "width": thumbnail_dims[0],
+            "height": thumbnail_dims[1]
         }
 
     return message
