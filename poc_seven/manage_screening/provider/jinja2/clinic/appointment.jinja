@@ -3,6 +3,13 @@
 {% block content %}
   <h1>{{ participant.first_name }} {{ participant.last_name }}</h1>
 
+  <div class="nhsuk-inset-text">
+    <span class="nhsuk-u-visually-hidden">Status: </span>
+    <span id="appointment-status" data-appointment-id="{{ appointment.id }}">
+      {{ format_status(appointment.state)|safe }}
+    </span>
+  </div>
+
   <div id="images-container">
     {% if images %}
       <div class="image-list">
@@ -87,15 +94,25 @@
       transform: translateY(0);
     }
   }
+
+  .status-updated {
+    animation: highlight 1s ease-in-out;
+  }
+
+  @keyframes highlight {
+    0%, 100% { background-color: transparent; }
+    50% { background-color: #ffe16f; }
+  }
 </style>
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
-  // Use Server-Sent Events for real-time image updates
+  // Use Server-Sent Events for real-time image and status updates
   const clinicId = "{{ clinic.id }}";
   const appointmentId = "{{ appointment.id }}";
-  let eventSource = null;
+  let imageEventSource = null;
+  let statusEventSource = null;
 
   function createImagePanel(image) {
     return `
@@ -151,49 +168,95 @@
     }
   }
 
-  function connectSSE() {
+  function connectImageSSE() {
     // Close existing connection if any
-    if (eventSource) {
-      eventSource.close();
+    if (imageEventSource) {
+      imageEventSource.close();
     }
 
-    // Establish SSE connection
-    const sseUrl = `/api/clinic/${clinicId}/appointment/${appointmentId}/images/stream`;
-    eventSource = new EventSource(sseUrl);
+    // Establish SSE connection for images
+    const imageSSEUrl = `/api/clinic/${clinicId}/appointment/${appointmentId}/images/stream`;
+    imageEventSource = new EventSource(imageSSEUrl);
 
-    eventSource.onmessage = function(event) {
+    imageEventSource.onmessage = function(event) {
       try {
         const data = JSON.parse(event.data);
 
         if (data.type === 'connected') {
-          console.log('SSE connection established');
+          console.log('Image SSE connection established');
         } else if (data.type === 'new_image') {
           console.log('New image received:', data.image);
           addNewImage(data.image);
         } else if (data.type === 'error') {
-          console.error('SSE error:', data.message);
+          console.error('Image SSE error:', data.message);
         }
       } catch (error) {
-        console.error('Error parsing SSE message:', error);
+        console.error('Error parsing image SSE message:', error);
       }
     };
 
-    eventSource.onerror = function(error) {
-      console.error('SSE connection error:', error);
-      eventSource.close();
+    imageEventSource.onerror = function(error) {
+      console.error('Image SSE connection error:', error);
+      imageEventSource.close();
 
       // Attempt to reconnect after 5 seconds
-      setTimeout(connectSSE, 5000);
+      setTimeout(connectImageSSE, 5000);
     };
   }
 
-  // Start SSE connection when page loads
-  connectSSE();
+  function connectStatusSSE() {
+    // Close existing connection if any
+    if (statusEventSource) {
+      statusEventSource.close();
+    }
 
-  // Clean up connection when page unloads
+    // Establish SSE connection for status updates
+    const statusSSEUrl = `/api/clinic/${clinicId}/appointment/${appointmentId}/status/stream`;
+    statusEventSource = new EventSource(statusSSEUrl);
+
+    statusEventSource.onmessage = function(event) {
+      try {
+        const data = JSON.parse(event.data);
+
+        if (data.type === 'connected') {
+          console.log('Status SSE connection established');
+        } else if (data.type === 'status_change') {
+          console.log('Status changed:', data.state);
+          const statusElement = document.getElementById('appointment-status');
+          if (statusElement) {
+            statusElement.innerHTML = data.html;
+            // Add a brief highlight animation when status changes
+            statusElement.classList.add('status-updated');
+            setTimeout(() => statusElement.classList.remove('status-updated'), 1000);
+          }
+        } else if (data.type === 'error') {
+          console.error('Status SSE error:', data.message);
+        }
+      } catch (error) {
+        console.error('Error parsing status SSE message:', error);
+      }
+    };
+
+    statusEventSource.onerror = function(error) {
+      console.error('Status SSE connection error:', error);
+      statusEventSource.close();
+
+      // Attempt to reconnect after 5 seconds
+      setTimeout(connectStatusSSE, 5000);
+    };
+  }
+
+  // Start SSE connections when page loads
+  connectImageSSE();
+  connectStatusSSE();
+
+  // Clean up connections when page unloads
   window.addEventListener('beforeunload', function() {
-    if (eventSource) {
-      eventSource.close();
+    if (imageEventSource) {
+      imageEventSource.close();
+    }
+    if (statusEventSource) {
+      statusEventSource.close();
     }
   });
 </script>

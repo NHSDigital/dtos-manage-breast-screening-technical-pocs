@@ -85,7 +85,8 @@ def get_appointment(request, clinic_id, appointment_id):
         "clinic": clinic,
         "appointment": appointment,
         "participant": appointment.participant,
-        "images": images
+        "images": images,
+        "format_status": format_status
     })
 
 def appointment_images(request, clinic_id, appointment_id):
@@ -156,6 +157,48 @@ def appointment_images_stream(request, clinic_id, appointment_id):
                 yield f": heartbeat\n\n"
 
                 time.sleep(0.2) #check 5 times per second
+
+            except Exception as e:
+                # Log error but continue streaming
+                yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+                time.sleep(1)
+
+    response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+    response['Cache-Control'] = 'no-cache'
+    response['X-Accel-Buffering'] = 'no'  # Disable buffering in nginx
+    return response
+
+def appointment_status_stream(request, clinic_id, appointment_id):
+    """SSE endpoint to stream real-time appointment status updates"""
+    clinic = get_object_or_404(Clinic, id=clinic_id)
+    appointment = get_object_or_404(Appointment, id=appointment_id, clinic_slot__clinic=clinic)
+
+    def event_stream():
+        """Generator function that yields SSE formatted status updates"""
+        last_state = appointment.state
+
+        # Send initial connection message
+        yield f"data: {json.dumps({'type': 'connected'})}\n\n"
+
+        while True:
+            try:
+                # Refresh appointment from database
+                appointment.refresh_from_db()
+
+                # Check if status has changed
+                if appointment.state != last_state:
+                    status_data = {
+                        'type': 'status_change',
+                        'state': appointment.state,
+                        'html': format_status(appointment.state)
+                    }
+                    yield f"data: {json.dumps(status_data)}\n\n"
+                    last_state = appointment.state
+
+                # Send heartbeat to keep connection alive
+                yield f": heartbeat\n\n"
+
+                time.sleep(0.5)  # Check twice per second
 
             except Exception as e:
                 # Log error but continue streaming
