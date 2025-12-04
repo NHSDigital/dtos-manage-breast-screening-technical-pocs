@@ -223,12 +223,14 @@ async def process_image_received_event(payload: dict) -> dict:
                     return {"status": "action_not_found", "action_id": action_id}
 
                 # Verify accession number matches (sanity check)
-                action_accession = action.payload.get("parameters", {}).get("accession_number")
+                action_accession = action.payload.get("parameters", {}).get("worklist_item", {}).get("accession_number")
                 if action_accession != accession_number:
                     logger.warning(
-                        f"Accession number mismatch: action={action_accession}, "
-                        f"message={accession_number} (using action's value)"
+                        f"Accession number mismatch: "
+                        f"action='{action_accession}' (type={type(action_accession).__name__}), "
+                        f"message='{accession_number}' (type={type(accession_number).__name__})"
                     )
+                    logger.debug(f"Full action payload: {action.payload}")
 
                 # Get appointment_id from the action
                 appointment_id = action.payload.get("source_reference", {}).get("appointment_id")

@@ -26,7 +26,7 @@ def get_clinic(request, clinic_id):
     rows = [
                 [
                     {"text": appointment.clinic_slot.start_time},
-                    {"text": appointment.participant},
+                    {"html": f'<a href="/clinic/{clinic.id}/appointment/{appointment.id}">{appointment.participant}</a>'},
                     {"text": appointment.participant.date_of_birth},
                     {"html": f'<span class="appointment-status" data-appointment-id="{appointment.id}">{format_status(appointment.state)}</span>'},
                     {"html": form_for(appointment.id, csrf_token, request)},
@@ -64,6 +64,25 @@ def appointment_statuses(request, clinic_id):
     }
 
     return JsonResponse(statuses)
+
+def get_appointment(request, clinic_id, appointment_id):
+    """View for individual appointment detail page"""
+    from gateway.models import Image
+
+    clinic = get_object_or_404(Clinic, id=clinic_id)
+    appointment = get_object_or_404(Appointment, id=appointment_id, clinic_slot__clinic=clinic)
+
+    # Get all images for this appointment through Study -> Series -> Image
+    images = Image.objects.filter(
+        series__study__appointment=appointment
+    ).select_related('series__study').order_by('received_at')
+
+    return render(request, "clinic/appointment.jinja", {
+        "clinic": clinic,
+        "appointment": appointment,
+        "participant": appointment.participant,
+        "images": images
+    })
 
 def form_for(appointment_id, csrf_token, request):
     gateway_id = Gateway.objects.last().id # we'd need to think about how we get the correct gateway Id. Is there more than one per trust?

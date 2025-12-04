@@ -1,0 +1,74 @@
+{% extends "layout.html" %}
+
+{% block content %}
+  <h1>{{ participant.first_name }} {{ participant.last_name }}</h1>
+
+  {% if images %}
+    <div class="image-list">
+      {% for image in images %}
+        <div class="image-panel">
+          <div class="nhsuk-grid-row">
+            <div class="nhsuk-grid-column-one-third">
+              <div class="image-thumbnail">
+                <img src="{{ image.thumbnail.url }}" alt="Image {{ image.instance_number }}">
+              </div>
+            </div>
+            <div class="nhsuk-grid-column-two-thirds">
+              <div class="image-details">
+                <div class="image-detail-row">
+                  <strong>Side:</strong> {{ image.laterality|upper if image.laterality else 'N/A' }}
+                </div>
+                <div class="image-detail-row">
+                  <strong>View:</strong> {{ image.view_position if image.view_position else 'N/A' }}
+                </div>
+                <div class="image-detail-row">
+                  <strong>Received:</strong> {{ image.received_at.strftime('%d/%m/%Y %H:%M') }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p>No images available for this appointment.</p>
+  {% endif %}
+{% endblock %}
+
+{% block extra_styles %}
+<style>
+  .image-list {
+    margin-top: 2rem;
+  }
+
+  .image-panel {
+    background-color: #f5f5f5;
+    padding: 1.5rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+  }
+
+  .image-thumbnail img {
+    max-width: 100%;
+    width: 100%;
+    height: auto;
+    border: 1px solid #ccc;
+    display: block;
+  }
+
+  .image-details {
+    padding-top: 0.5rem;
+  }
+
+  .image-detail-row {
+    line-height: 1.6;
+    font-size: 1.125rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .image-detail-row strong {
+    display: inline-block;
+    min-width: 110px;
+  }
+</style>
+{% endblock %}
