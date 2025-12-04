@@ -1,6 +1,12 @@
 {% extends "layout.html" %}
 
 {% block content %}
+  <nav class="nhsuk-breadcrumb" aria-label="Breadcrumb">
+    <ol class="nhsuk-breadcrumb__list">
+      <li class="nhsuk-breadcrumb__item"><a class="nhsuk-breadcrumb__link" href="/clinic/{{ clinic.id }}">Back to clinic list</a></li>
+    </ol>
+  </nav>
+
   <h1>{{ participant.first_name }} {{ participant.last_name }}</h1>
 
   <div class="nhsuk-inset-text">
