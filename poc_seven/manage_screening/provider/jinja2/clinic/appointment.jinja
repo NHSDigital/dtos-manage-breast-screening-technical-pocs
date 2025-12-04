@@ -11,33 +11,38 @@
   </div>
 
   <div id="images-container">
-    {% if images %}
-      <div class="image-list">
-        {% for image in images %}
-          <div class="image-panel" data-image-id="{{ image.id }}">
-            <div class="nhsuk-grid-row">
-              <div class="nhsuk-grid-column-one-third">
-                <div class="image-thumbnail">
-                  <img src="{{ image.thumbnail.url }}" alt="Image {{ image.instance_number }}">
+    {% if studies_with_images %}
+      {% for study_data in studies_with_images %}
+        <div class="study-group" data-study-id="{{ study_data.study.id }}">
+          <h2 class="study-heading">Study: {{ study_data.study.accession_number }} - {{ study_data.study.study_date[:4] }}/{{ study_data.study.study_date[4:6] }}/{{ study_data.study.study_date[6:] }} {{ study_data.study.study_time[:2] }}:{{ study_data.study.study_time[2:4] }}</h2>
+          <div class="image-list">
+            {% for image in study_data.images %}
+              <div class="image-panel" data-image-id="{{ image.id }}">
+                <div class="nhsuk-grid-row">
+                  <div class="nhsuk-grid-column-one-third">
+                    <div class="image-thumbnail">
+                      <img src="{{ image.thumbnail.url }}" alt="Image {{ image.instance_number }}">
+                    </div>
+                  </div>
+                  <div class="nhsuk-grid-column-two-thirds">
+                    <div class="image-details">
+                      <div class="image-detail-row">
+                        <strong>Side:</strong> {{ image.laterality|upper if image.laterality else 'N/A' }}
+                      </div>
+                      <div class="image-detail-row">
+                        <strong>View:</strong> {{ image.view_position if image.view_position else 'N/A' }}
+                      </div>
+                      <div class="image-detail-row">
+                        <strong>Received:</strong> {{ image.received_at.strftime('%d/%m/%Y %H:%M') }}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div class="nhsuk-grid-column-two-thirds">
-                <div class="image-details">
-                  <div class="image-detail-row">
-                    <strong>Side:</strong> {{ image.laterality|upper if image.laterality else 'N/A' }}
-                  </div>
-                  <div class="image-detail-row">
-                    <strong>View:</strong> {{ image.view_position if image.view_position else 'N/A' }}
-                  </div>
-                  <div class="image-detail-row">
-                    <strong>Received:</strong> {{ image.received_at.strftime('%d/%m/%Y %H:%M') }}
-                  </div>
-                </div>
-              </div>
-            </div>
+            {% endfor %}
           </div>
-        {% endfor %}
-      </div>
+        </div>
+      {% endfor %}
     {% else %}
       <p id="no-images-message">No images available for this appointment.</p>
     {% endif %}
@@ -46,8 +51,21 @@
 
 {% block extra_styles %}
 <style>
+  .study-group {
+    margin-bottom: 3rem;
+  }
+
+  .study-heading {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #005eb8;
+    color: #005eb8;
+  }
+
   .image-list {
-    margin-top: 2rem;
+    margin-top: 1rem;
   }
 
   .image-panel {
@@ -114,6 +132,24 @@
   let imageEventSource = null;
   let statusEventSource = null;
 
+  function formatStudyDateTime(studyDate, studyTime) {
+    // Convert YYYYMMDD to YYYY/MM/DD
+    const date = `${studyDate.substring(0, 4)}/${studyDate.substring(4, 6)}/${studyDate.substring(6, 8)}`;
+    // Convert HHMMSS to HH:MM
+    const time = `${studyTime.substring(0, 2)}:${studyTime.substring(2, 4)}`;
+    return `${date} ${time}`;
+  }
+
+  function createStudyGroup(study) {
+    const dateTime = formatStudyDateTime(study.study_date, study.study_time);
+    return `
+      <div class="study-group" data-study-id="${study.id}">
+        <h2 class="study-heading">Study: ${study.accession_number} - ${dateTime}</h2>
+        <div class="image-list"></div>
+      </div>
+    `;
+  }
+
   function createImagePanel(image) {
     return `
       <div class="image-panel image-added" data-image-id="${image.id}">
@@ -141,31 +177,33 @@
     `;
   }
 
-  function addNewImage(image) {
+  function addNewImage(study, image) {
     const container = document.getElementById('images-container');
     const noImagesMessage = document.getElementById('no-images-message');
-    const existingImageList = container.querySelector('.image-list');
 
     // Remove "no images" message if it exists
     if (noImagesMessage) {
       noImagesMessage.remove();
     }
 
-    // Create image list if it doesn't exist
-    if (!existingImageList) {
-      const imageList = document.createElement('div');
-      imageList.className = 'image-list';
-      container.appendChild(imageList);
-    }
-
-    const imageList = container.querySelector('.image-list');
-
     // Check if image already exists
     const existingPanel = document.querySelector(`[data-image-id="${image.id}"]`);
-    if (!existingPanel) {
-      // Add new image with animation
-      imageList.insertAdjacentHTML('beforeend', createImagePanel(image));
+    if (existingPanel) {
+      return; // Image already displayed
     }
+
+    // Check if study group exists
+    let studyGroup = document.querySelector(`[data-study-id="${study.id}"]`);
+
+    if (!studyGroup) {
+      // Create new study group
+      container.insertAdjacentHTML('beforeend', createStudyGroup(study));
+      studyGroup = document.querySelector(`[data-study-id="${study.id}"]`);
+    }
+
+    // Add image to the study's image list
+    const imageList = studyGroup.querySelector('.image-list');
+    imageList.insertAdjacentHTML('beforeend', createImagePanel(image));
   }
 
   function connectImageSSE() {
@@ -186,7 +224,7 @@
           console.log('Image SSE connection established');
         } else if (data.type === 'new_image') {
           console.log('New image received:', data.image);
-          addNewImage(data.image);
+          addNewImage(data.study, data.image);
         } else if (data.type === 'error') {
           console.error('Image SSE error:', data.message);
         }

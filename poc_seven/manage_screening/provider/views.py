@@ -71,21 +71,37 @@ def appointment_statuses(request, clinic_id):
 
 def get_appointment(request, clinic_id, appointment_id):
     """View for individual appointment detail page"""
-    from gateway.models import Image
+    from gateway.models import Study
+    from collections import defaultdict
 
     clinic = get_object_or_404(Clinic, id=clinic_id)
     appointment = get_object_or_404(Appointment, id=appointment_id, clinic_slot__clinic=clinic)
 
-    # Get all images for this appointment through Study -> Series -> Image
-    images = Image.objects.filter(
-        series__study__appointment=appointment
-    ).select_related('series__study').order_by('received_at')
+    # Get all studies for this appointment with their images
+    studies = Study.objects.filter(
+        appointment=appointment
+    ).prefetch_related('series__images').order_by('created_at')
+
+    # Group images by study
+    studies_with_images = []
+    for study in studies:
+        images = []
+        for series in study.series.all():
+            images.extend(series.images.all())
+
+        if images:
+            # Sort images by received_at
+            images.sort(key=lambda x: x.received_at)
+            studies_with_images.append({
+                'study': study,
+                'images': images
+            })
 
     return render(request, "clinic/appointment.jinja", {
         "clinic": clinic,
         "appointment": appointment,
         "participant": appointment.participant,
-        "images": images,
+        "studies_with_images": studies_with_images,
         "format_status": format_status
     })
 
@@ -138,8 +154,15 @@ def appointment_images_stream(request, clinic_id, appointment_id):
 
                 if new_images.exists():
                     for image in new_images:
+                        study = image.series.study
                         image_data = {
                             'type': 'new_image',
+                            'study': {
+                                'id': str(study.id),
+                                'accession_number': study.accession_number,
+                                'study_date': study.study_date,
+                                'study_time': study.study_time
+                            },
                             'image': {
                                 'id': str(image.id),
                                 'thumbnail_url': image.thumbnail.url if image.thumbnail else None,
