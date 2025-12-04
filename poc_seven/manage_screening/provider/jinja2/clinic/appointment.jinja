@@ -3,36 +3,38 @@
 {% block content %}
   <h1>{{ participant.first_name }} {{ participant.last_name }}</h1>
 
-  {% if images %}
-    <div class="image-list">
-      {% for image in images %}
-        <div class="image-panel">
-          <div class="nhsuk-grid-row">
-            <div class="nhsuk-grid-column-one-third">
-              <div class="image-thumbnail">
-                <img src="{{ image.thumbnail.url }}" alt="Image {{ image.instance_number }}">
+  <div id="images-container">
+    {% if images %}
+      <div class="image-list">
+        {% for image in images %}
+          <div class="image-panel" data-image-id="{{ image.id }}">
+            <div class="nhsuk-grid-row">
+              <div class="nhsuk-grid-column-one-third">
+                <div class="image-thumbnail">
+                  <img src="{{ image.thumbnail.url }}" alt="Image {{ image.instance_number }}">
+                </div>
               </div>
-            </div>
-            <div class="nhsuk-grid-column-two-thirds">
-              <div class="image-details">
-                <div class="image-detail-row">
-                  <strong>Side:</strong> {{ image.laterality|upper if image.laterality else 'N/A' }}
-                </div>
-                <div class="image-detail-row">
-                  <strong>View:</strong> {{ image.view_position if image.view_position else 'N/A' }}
-                </div>
-                <div class="image-detail-row">
-                  <strong>Received:</strong> {{ image.received_at.strftime('%d/%m/%Y %H:%M') }}
+              <div class="nhsuk-grid-column-two-thirds">
+                <div class="image-details">
+                  <div class="image-detail-row">
+                    <strong>Side:</strong> {{ image.laterality|upper if image.laterality else 'N/A' }}
+                  </div>
+                  <div class="image-detail-row">
+                    <strong>View:</strong> {{ image.view_position if image.view_position else 'N/A' }}
+                  </div>
+                  <div class="image-detail-row">
+                    <strong>Received:</strong> {{ image.received_at.strftime('%d/%m/%Y %H:%M') }}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      {% endfor %}
-    </div>
-  {% else %}
-    <p>No images available for this appointment.</p>
-  {% endif %}
+        {% endfor %}
+      </div>
+    {% else %}
+      <p id="no-images-message">No images available for this appointment.</p>
+    {% endif %}
+  </div>
 {% endblock %}
 
 {% block extra_styles %}
@@ -70,5 +72,129 @@
     display: inline-block;
     min-width: 110px;
   }
+
+  .image-added {
+    animation: slideInFade 0.5s ease-in-out;
+  }
+
+  @keyframes slideInFade {
+    0% {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 </style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  // Use Server-Sent Events for real-time image updates
+  const clinicId = "{{ clinic.id }}";
+  const appointmentId = "{{ appointment.id }}";
+  let eventSource = null;
+
+  function createImagePanel(image) {
+    return `
+      <div class="image-panel image-added" data-image-id="${image.id}">
+        <div class="nhsuk-grid-row">
+          <div class="nhsuk-grid-column-one-third">
+            <div class="image-thumbnail">
+              <img src="${image.thumbnail_url}" alt="Image ${image.instance_number}">
+            </div>
+          </div>
+          <div class="nhsuk-grid-column-two-thirds">
+            <div class="image-details">
+              <div class="image-detail-row">
+                <strong>Side:</strong> ${image.laterality}
+              </div>
+              <div class="image-detail-row">
+                <strong>View:</strong> ${image.view_position}
+              </div>
+              <div class="image-detail-row">
+                <strong>Received:</strong> ${image.received_at}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function addNewImage(image) {
+    const container = document.getElementById('images-container');
+    const noImagesMessage = document.getElementById('no-images-message');
+    const existingImageList = container.querySelector('.image-list');
+
+    // Remove "no images" message if it exists
+    if (noImagesMessage) {
+      noImagesMessage.remove();
+    }
+
+    // Create image list if it doesn't exist
+    if (!existingImageList) {
+      const imageList = document.createElement('div');
+      imageList.className = 'image-list';
+      container.appendChild(imageList);
+    }
+
+    const imageList = container.querySelector('.image-list');
+
+    // Check if image already exists
+    const existingPanel = document.querySelector(`[data-image-id="${image.id}"]`);
+    if (!existingPanel) {
+      // Add new image with animation
+      imageList.insertAdjacentHTML('beforeend', createImagePanel(image));
+    }
+  }
+
+  function connectSSE() {
+    // Close existing connection if any
+    if (eventSource) {
+      eventSource.close();
+    }
+
+    // Establish SSE connection
+    const sseUrl = `/api/clinic/${clinicId}/appointment/${appointmentId}/images/stream`;
+    eventSource = new EventSource(sseUrl);
+
+    eventSource.onmessage = function(event) {
+      try {
+        const data = JSON.parse(event.data);
+
+        if (data.type === 'connected') {
+          console.log('SSE connection established');
+        } else if (data.type === 'new_image') {
+          console.log('New image received:', data.image);
+          addNewImage(data.image);
+        } else if (data.type === 'error') {
+          console.error('SSE error:', data.message);
+        }
+      } catch (error) {
+        console.error('Error parsing SSE message:', error);
+      }
+    };
+
+    eventSource.onerror = function(error) {
+      console.error('SSE connection error:', error);
+      eventSource.close();
+
+      // Attempt to reconnect after 5 seconds
+      setTimeout(connectSSE, 5000);
+    };
+  }
+
+  // Start SSE connection when page loads
+  connectSSE();
+
+  // Clean up connection when page unloads
+  window.addEventListener('beforeunload', function() {
+    if (eventSource) {
+      eventSource.close();
+    }
+  });
+</script>
 {% endblock %}

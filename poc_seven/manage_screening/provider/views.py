@@ -1,10 +1,14 @@
 from django.shortcuts import render, get_object_or_404
-from django.http import JsonResponse
+from django.http import JsonResponse, StreamingHttpResponse
 from provider.models import Clinic, Appointment, AppointmentState
 from django.middleware.csrf import get_token
 from gateway.models import Gateway
 from gateway.forms import ScreeningOrderGatewayActionForm
 from django.template import engines
+from django.utils import timezone
+import json
+import time
+from datetime import timedelta
 
 def clinic_index(request):
     clinics = Clinic.objects.all()
@@ -83,6 +87,85 @@ def get_appointment(request, clinic_id, appointment_id):
         "participant": appointment.participant,
         "images": images
     })
+
+def appointment_images(request, clinic_id, appointment_id):
+    """API endpoint to get images for an appointment"""
+    from gateway.models import Image
+
+    clinic = get_object_or_404(Clinic, id=clinic_id)
+    appointment = get_object_or_404(Appointment, id=appointment_id, clinic_slot__clinic=clinic)
+
+    # Get all images for this appointment through Study -> Series -> Image
+    images = Image.objects.filter(
+        series__study__appointment=appointment
+    ).select_related('series__study').order_by('received_at')
+
+    image_data = []
+    for image in images:
+        image_data.append({
+            'id': str(image.id),
+            'thumbnail_url': image.thumbnail.url if image.thumbnail else None,
+            'instance_number': image.instance_number,
+            'laterality': image.laterality.upper() if image.laterality else 'N/A',
+            'view_position': image.view_position if image.view_position else 'N/A',
+            'received_at': image.received_at.strftime('%d/%m/%Y %H:%M')
+        })
+
+    return JsonResponse({'images': image_data})
+
+def appointment_images_stream(request, clinic_id, appointment_id):
+    """SSE endpoint to stream real-time image updates"""
+    from gateway.models import Image
+
+    clinic = get_object_or_404(Clinic, id=clinic_id)
+    appointment = get_object_or_404(Appointment, id=appointment_id, clinic_slot__clinic=clinic)
+
+    def event_stream():
+        """Generator function that yields SSE formatted data"""
+        last_check = timezone.now() - timedelta(seconds=1)
+
+        # Send initial connection message
+        yield f"data: {json.dumps({'type': 'connected'})}\n\n"
+
+        while True:
+            try:
+                # Check for new images since last check
+                new_images = Image.objects.filter(
+                    series__study__appointment=appointment,
+                    created_at__gt=last_check
+                ).select_related('series__study').order_by('received_at')
+
+                if new_images.exists():
+                    for image in new_images:
+                        image_data = {
+                            'type': 'new_image',
+                            'image': {
+                                'id': str(image.id),
+                                'thumbnail_url': image.thumbnail.url if image.thumbnail else None,
+                                'instance_number': image.instance_number,
+                                'laterality': image.laterality.upper() if image.laterality else 'N/A',
+                                'view_position': image.view_position if image.view_position else 'N/A',
+                                'received_at': image.received_at.strftime('%d/%m/%Y %H:%M')
+                            }
+                        }
+                        yield f"data: {json.dumps(image_data)}\n\n"
+
+                last_check = timezone.now()
+
+                # Send heartbeat to keep connection alive
+                yield f": heartbeat\n\n"
+
+                time.sleep(0.2) #check 5 times per second
+
+            except Exception as e:
+                # Log error but continue streaming
+                yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+                time.sleep(1)
+
+    response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+    response['Cache-Control'] = 'no-cache'
+    response['X-Accel-Buffering'] = 'no'  # Disable buffering in nginx
+    return response
 
 def form_for(appointment_id, csrf_token, request):
     gateway_id = Gateway.objects.last().id # we'd need to think about how we get the correct gateway Id. Is there more than one per trust?
