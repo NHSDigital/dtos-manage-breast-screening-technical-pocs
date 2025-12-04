@@ -5,9 +5,16 @@
 
   <div class="nhsuk-inset-text">
     <span class="nhsuk-u-visually-hidden">Status: </span>
-    <span id="appointment-status" data-appointment-id="{{ appointment.id }}">
+    <span id="appointment-status" data-appointment-id="{{ appointment.id }}" data-state="{{ appointment.state }}">
       {{ format_status(appointment.state)|safe }}
     </span>
+    {% if not studies_with_images %}
+      {% if appointment.state == 'pending' %}
+        <span id="no-images-message" class="status-message"> - No images to display</span>
+      {% else %}
+        <span id="no-images-message" class="status-message"> - Awaiting images...</span>
+      {% endif %}
+    {% endif %}
   </div>
 
   <div id="images-container">
@@ -43,14 +50,17 @@
           </div>
         </div>
       {% endfor %}
-    {% else %}
-      <p id="no-images-message">No images available for this appointment.</p>
     {% endif %}
   </div>
 {% endblock %}
 
 {% block extra_styles %}
 <style>
+  .status-message {
+    color: #4c6272;
+    font-weight: normal;
+  }
+
   .study-group {
     margin-bottom: 3rem;
   }
@@ -177,14 +187,37 @@
     `;
   }
 
+  function updateStatusMessage(state) {
+    const statusElement = document.getElementById('appointment-status');
+    let noImagesMessage = document.getElementById('no-images-message');
+
+    // Check if there are any images displayed
+    const hasImages = document.querySelector('.study-group') !== null;
+
+    if (hasImages) {
+      // Remove message if images are present
+      if (noImagesMessage) {
+        noImagesMessage.remove();
+      }
+    } else {
+      // Update or create message based on state
+      const messageText = state === 'pending' ? ' - No images to display' : ' - Awaiting images...';
+
+      if (noImagesMessage) {
+        noImagesMessage.textContent = messageText;
+      } else {
+        // Create message if it doesn't exist
+        const newMessage = document.createElement('span');
+        newMessage.id = 'no-images-message';
+        newMessage.className = 'status-message';
+        newMessage.textContent = messageText;
+        statusElement.parentElement.appendChild(newMessage);
+      }
+    }
+  }
+
   function addNewImage(study, image) {
     const container = document.getElementById('images-container');
-    const noImagesMessage = document.getElementById('no-images-message');
-
-    // Remove "no images" message if it exists
-    if (noImagesMessage) {
-      noImagesMessage.remove();
-    }
 
     // Check if image already exists
     const existingPanel = document.querySelector(`[data-image-id="${image.id}"]`);
@@ -204,6 +237,11 @@
     // Add image to the study's image list
     const imageList = studyGroup.querySelector('.image-list');
     imageList.insertAdjacentHTML('beforeend', createImagePanel(image));
+
+    // Update status message (will remove it now that we have images)
+    const statusElement = document.getElementById('appointment-status');
+    const currentState = statusElement.getAttribute('data-state');
+    updateStatusMessage(currentState);
   }
 
   function connectImageSSE() {
@@ -263,9 +301,13 @@
           const statusElement = document.getElementById('appointment-status');
           if (statusElement) {
             statusElement.innerHTML = data.html;
+            statusElement.setAttribute('data-state', data.state);
             // Add a brief highlight animation when status changes
             statusElement.classList.add('status-updated');
             setTimeout(() => statusElement.classList.remove('status-updated'), 1000);
+
+            // Update the status message based on new state
+            updateStatusMessage(data.state);
           }
         } else if (data.type === 'error') {
           console.error('Status SSE error:', data.message);
