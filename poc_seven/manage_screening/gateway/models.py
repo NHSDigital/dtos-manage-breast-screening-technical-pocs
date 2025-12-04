@@ -118,7 +118,7 @@ class Image(models.Model):
     series = models.ForeignKey(Series, related_name='images', on_delete=models.CASCADE)
 
     # DICOM identifiers
-    sop_instance_uid = models.CharField(max_length=255, unique=True, db_index=True)
+    sop_instance_uid = models.CharField(max_length=255, db_index=True)
     instance_number = models.CharField(max_length=20)
 
     # Image dimensions
@@ -136,6 +136,14 @@ class Image(models.Model):
     received_at = models.DateTimeField(help_text="When image was received at gateway")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['series', 'sop_instance_uid'],
+                name='unique_image_per_series'
+            )
+        ]
 
     def __str__(self):
         return f"{self.series.study.accession_number} - Instance {self.instance_number}"

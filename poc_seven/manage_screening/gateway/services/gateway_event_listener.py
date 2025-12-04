@@ -263,12 +263,13 @@ async def process_image_received_event(payload: dict) -> dict:
                     }
                 )
 
-                # Check if Image already exists
-                if Image.objects.filter(sop_instance_uid=sop_instance_uid).exists():
-                    logger.info(f"Image already exists: {sop_instance_uid}")
+                # Check if Image already exists within this series
+                if Image.objects.filter(series=series, sop_instance_uid=sop_instance_uid).exists():
+                    logger.info(f"Image already exists in series {series_instance_uid}: {sop_instance_uid}")
                     return {
                         "status": "already_exists",
                         "sop_instance_uid": sop_instance_uid,
+                        "series_instance_uid": series_instance_uid,
                         "study_created": study_created,
                         "series_created": series_created
                     }
