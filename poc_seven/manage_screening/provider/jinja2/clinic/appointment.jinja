@@ -30,7 +30,7 @@
           <h2 class="study-heading">Study: {{ study_data.study.accession_number }} - {{ study_data.study.study_date[:4] }}/{{ study_data.study.study_date[4:6] }}/{{ study_data.study.study_date[6:] }} {{ study_data.study.study_time[:2] }}:{{ study_data.study.study_time[2:4] }}</h2>
           <div class="image-list">
             {% for image in study_data.images %}
-              <div class="image-panel" data-image-id="{{ image.id }}">
+              <div class="image-panel" data-image-id="{{ image.id }}" data-series-id="{{ image.series.id }}" data-instance-number="{{ image.instance_number }}">
                 <div class="nhsuk-grid-row">
                   <div class="nhsuk-grid-column-one-third">
                     <div class="image-thumbnail">
@@ -168,7 +168,7 @@
 
   function createImagePanel(image) {
     return `
-      <div class="image-panel image-added" data-image-id="${image.id}">
+      <div class="image-panel image-added" data-image-id="${image.id}" data-series-id="${image.series_id}" data-instance-number="${image.instance_number}">
         <div class="nhsuk-grid-row">
           <div class="nhsuk-grid-column-one-third">
             <div class="image-thumbnail">
@@ -240,9 +240,39 @@
       studyGroup = document.querySelector(`[data-study-id="${study.id}"]`);
     }
 
-    // Add image to the study's image list
+    // Add image to the study's image list in sorted order
     const imageList = studyGroup.querySelector('.image-list');
-    imageList.insertAdjacentHTML('beforeend', createImagePanel(image));
+    const existingImages = Array.from(imageList.querySelectorAll('.image-panel'));
+
+    // Find the correct position to insert the new image
+    // Sort by: series_id (alphabetically), then instance_number (numerically)
+    let insertBeforeElement = null;
+    for (const existingImage of existingImages) {
+      const existingSeriesId = existingImage.getAttribute('data-series-id') || '';
+      const existingInstanceNum = parseInt(existingImage.getAttribute('data-instance-number') || '999', 10);
+      const newSeriesId = image.series_id || '';
+      const newInstanceNum = parseInt(image.instance_number || '999', 10);
+
+      // Compare series first
+      if (newSeriesId < existingSeriesId) {
+        insertBeforeElement = existingImage;
+        break;
+      } else if (newSeriesId === existingSeriesId) {
+        // Same series, compare instance number
+        if (newInstanceNum < existingInstanceNum) {
+          insertBeforeElement = existingImage;
+          break;
+        }
+      }
+    }
+
+    if (insertBeforeElement) {
+      // Insert before the found element
+      insertBeforeElement.insertAdjacentHTML('beforebegin', createImagePanel(image));
+    } else {
+      // Append to end if no suitable position found
+      imageList.insertAdjacentHTML('beforeend', createImagePanel(image));
+    }
 
     // Update status message (will remove it now that we have images)
     const statusElement = document.getElementById('appointment-status');

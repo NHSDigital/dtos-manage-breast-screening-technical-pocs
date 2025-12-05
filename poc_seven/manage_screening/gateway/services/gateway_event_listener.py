@@ -240,28 +240,38 @@ async def process_image_received_event(payload: dict) -> dict:
 
                 appointment = Appointment.objects.get(id=appointment_id)
 
-                # Create or get Study
-                study, study_created = Study.objects.get_or_create(
-                    study_instance_uid=study_instance_uid,
-                    defaults={
-                        "appointment": appointment,
-                        "accession_number": accession_number,
-                        "modality": study_data.get("modality", ""),
-                        "study_date": study_data.get("study_date", ""),
-                        "study_time": study_data.get("study_time", ""),
-                        "study_description": study_data.get("study_description", ""),
-                    }
-                )
+                # Check if Series already exists first (since series_instance_uid is unique)
+                # If it exists, get the Study from it instead of creating a new one
+                try:
+                    existing_series = Series.objects.select_related('study').get(series_instance_uid=series_instance_uid)
+                    series = existing_series
+                    study = existing_series.study
+                    series_created = False
+                    study_created = False
+                    logger.info(f"Found existing series {series_instance_uid}, using study {study.study_instance_uid}")
+                except Series.DoesNotExist:
+                    # Series doesn't exist, so create both Study and Series
+                    study, study_created = Study.objects.get_or_create(
+                        study_instance_uid=study_instance_uid,
+                        defaults={
+                            "appointment": appointment,
+                            "accession_number": accession_number,
+                            "modality": study_data.get("modality", ""),
+                            "study_date": study_data.get("study_date", ""),
+                            "study_time": study_data.get("study_time", ""),
+                            "study_description": study_data.get("study_description", ""),
+                        }
+                    )
 
-                # Create or get Series
-                series, series_created = Series.objects.get_or_create(
-                    series_instance_uid=series_instance_uid,
-                    defaults={
-                        "study": study,
-                        "series_number": series_data.get("series_number", ""),
-                        "series_description": series_data.get("series_description", ""),
-                    }
-                )
+                    series, series_created = Series.objects.get_or_create(
+                        series_instance_uid=series_instance_uid,
+                        defaults={
+                            "study": study,
+                            "series_number": series_data.get("series_number", ""),
+                            "series_description": series_data.get("series_description", ""),
+                        }
+                    )
+                    logger.info(f"Created new study={study_created}, series={series_created} for series_uid {series_instance_uid}")
 
                 # Check if Image already exists within this series
                 if Image.objects.filter(series=series, sop_instance_uid=sop_instance_uid).exists():

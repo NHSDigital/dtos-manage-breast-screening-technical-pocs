@@ -90,8 +90,9 @@ def get_appointment(request, clinic_id, appointment_id):
             images.extend(series.images.all())
 
         if images:
-            # Sort images by received_at
-            images.sort(key=lambda x: x.received_at)
+            # Sort images by series_instance_uid, then instance_number, then received_at
+            # This matches the ordering used in the API endpoints
+            images.sort(key=lambda x: (x.series.series_instance_uid, int(x.instance_number or 999), x.received_at))
             studies_with_images.append({
                 'study': study,
                 'images': images
@@ -113,14 +114,17 @@ def appointment_images(request, clinic_id, appointment_id):
     appointment = get_object_or_404(Appointment, id=appointment_id, clinic_slot__clinic=clinic)
 
     # Get all images for this appointment through Study -> Series -> Image
+    # Order by series first (groups images from same series together),
+    # then by instance_number within each series
     images = Image.objects.filter(
         series__study__appointment=appointment
-    ).select_related('series__study').order_by('received_at')
+    ).select_related('series__study').order_by('series__series_instance_uid', 'instance_number', 'received_at')
 
     image_data = []
     for image in images:
         image_data.append({
             'id': str(image.id),
+            'series_id': str(image.series.id),
             'thumbnail_url': image.thumbnail.url if image.thumbnail else None,
             'instance_number': image.instance_number,
             'laterality': image.laterality.upper() if image.laterality else 'N/A',
@@ -147,10 +151,11 @@ def appointment_images_stream(request, clinic_id, appointment_id):
         while True:
             try:
                 # Check for new images since last check
+                # Order by series to group images from same series together
                 new_images = Image.objects.filter(
                     series__study__appointment=appointment,
                     created_at__gt=last_check
-                ).select_related('series__study').order_by('received_at')
+                ).select_related('series__study').order_by('series__series_instance_uid', 'instance_number', 'received_at')
 
                 if new_images.exists():
                     for image in new_images:
@@ -165,6 +170,7 @@ def appointment_images_stream(request, clinic_id, appointment_id):
                             },
                             'image': {
                                 'id': str(image.id),
+                                'series_id': str(image.series.id),
                                 'thumbnail_url': image.thumbnail.url if image.thumbnail else None,
                                 'instance_number': image.instance_number,
                                 'laterality': image.laterality.upper() if image.laterality else 'N/A',
