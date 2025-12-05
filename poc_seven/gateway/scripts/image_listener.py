@@ -265,21 +265,35 @@ def build_image_received_message(
     return message
 
 
-def send_image_message(message: dict) -> bool:
+def send_image_message(message: dict, max_retries: int = 3) -> bool:
     """
-    Send image_received message via Azure Relay to manage-screening.
+    Send image_received message via Azure Relay to manage-screening with retry logic.
 
     Args:
         message: The image_received message dictionary
+        max_retries: Maximum number of retry attempts
 
     Returns:
         True if sent successfully, False otherwise
     """
-    try:
-        return send_image_event_sync(message)
-    except Exception as e:
-        logger.error(f"Error sending image message: {e}")
-        return False
+    for attempt in range(max_retries):
+        try:
+            if send_image_event_sync(message):
+                return True
+            else:
+                logger.warning(f"Failed to send image message (attempt {attempt + 1}/{max_retries})")
+                if attempt < max_retries - 1:
+                    import time
+                    # Exponential backoff: 1s, 2s, 4s
+                    time.sleep(2 ** attempt)
+        except Exception as e:
+            logger.error(f"Error sending image message (attempt {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                import time
+                time.sleep(2 ** attempt)
+
+    logger.error(f"Failed to send image message after {max_retries} attempts")
+    return False
 
 
 def process_pending_images():
