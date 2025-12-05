@@ -239,6 +239,54 @@ def appointment_status_stream(request, clinic_id, appointment_id):
     response['X-Accel-Buffering'] = 'no'  # Disable buffering in nginx
     return response
 
+def clinic_statuses_stream(request, clinic_id):
+    """SSE endpoint to stream real-time status updates for all appointments in a clinic"""
+    clinic = get_object_or_404(Clinic, id=clinic_id)
+
+    def event_stream():
+        """Generator function that yields SSE formatted status updates for all appointments"""
+        # Track last known state for each appointment
+        appointment_states = {}
+
+        # Send initial connection message
+        yield f"data: {json.dumps({'type': 'connected'})}\n\n"
+
+        while True:
+            try:
+                # Get all appointments for this clinic
+                appointments = Appointment.objects.filter(clinic_slot__clinic=clinic)
+
+                # Check each appointment for state changes
+                for appointment in appointments:
+                    appointment_id = str(appointment.id)
+                    current_state = appointment.state
+
+                    # Check if this is a new appointment or state has changed
+                    if appointment_id not in appointment_states or appointment_states[appointment_id] != current_state:
+                        status_data = {
+                            'type': 'status_change',
+                            'appointment_id': appointment_id,
+                            'state': current_state,
+                            'html': format_status(current_state)
+                        }
+                        yield f"data: {json.dumps(status_data)}\n\n"
+                        appointment_states[appointment_id] = current_state
+
+                # Send heartbeat to keep connection alive
+                yield f": heartbeat\n\n"
+
+                time.sleep(0.5)  # Check twice per second
+
+            except Exception as e:
+                # Log error but continue streaming
+                yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+                time.sleep(1)
+
+    response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+    response['Cache-Control'] = 'no-cache'
+    response['X-Accel-Buffering'] = 'no'  # Disable buffering in nginx
+    return response
+
 def form_for(appointment_id, csrf_token, request):
     gateway_id = Gateway.objects.last().id # we'd need to think about how we get the correct gateway Id. Is there more than one per trust?
     appointment = Appointment.objects.get(id=appointment_id)
