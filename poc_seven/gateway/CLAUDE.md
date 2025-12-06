@@ -1,0 +1,1 @@
+- Dosage extraction - this is likely to vary based on the modality manufacturers implementation of the 'standard'

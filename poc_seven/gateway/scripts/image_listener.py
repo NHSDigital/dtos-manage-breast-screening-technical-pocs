@@ -248,6 +248,15 @@ def build_image_received_message(
                     "view_position": instance.get("view_position"),
                     "laterality": instance.get("laterality")
                 },
+                "dose": {
+                    "organ_dose": instance.get("organ_dose"),
+                    "entrance_dose_in_mgy": instance.get("entrance_dose_in_mgy"),
+                    "kvp": instance.get("kvp"),
+                    "exposure_in_uas": instance.get("exposure_in_uas"),
+                    "anode_target_material": instance.get("anode_target_material"),
+                    "filter_material": instance.get("filter_material"),
+                    "filter_thickness": instance.get("filter_thickness")
+                },
                 "received_at": instance.get("received_at")
             }
         }
