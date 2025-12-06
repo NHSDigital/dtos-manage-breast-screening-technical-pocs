@@ -129,6 +129,15 @@ class Image(models.Model):
     view_position = models.CharField(max_length=10, blank=True, help_text="e.g., CC, MLO")
     laterality = models.CharField(max_length=1, blank=True, help_text="L or R")
 
+    # Dose and exposure parameters
+    organ_dose = models.CharField(max_length=20, blank=True, help_text="Mean Glandular Dose (MGD) in mGy")
+    entrance_dose_in_mgy = models.CharField(max_length=20, blank=True, help_text="Entrance surface dose in mGy")
+    kvp = models.CharField(max_length=10, blank=True, help_text="Tube voltage in kV")
+    exposure_in_uas = models.CharField(max_length=20, blank=True, help_text="Tube current-time product in µAs")
+    anode_target_material = models.CharField(max_length=20, blank=True, help_text="e.g., TUNGSTEN")
+    filter_material = models.CharField(max_length=20, blank=True, help_text="e.g., RHODIUM")
+    filter_thickness = models.CharField(max_length=10, blank=True, help_text="Filter thickness in mm")
+
     # Thumbnail file
     thumbnail = models.ImageField(upload_to='thumbnails/', help_text="JPEG thumbnail image file")
 

@@ -88,6 +88,14 @@ def handle_store(event):
             'sop_class_uid': str(getattr(ds, 'SOPClassUID', '')),
             'rows': int(getattr(ds, 'Rows', 0)) if hasattr(ds, 'Rows') else None,
             'columns': int(getattr(ds, 'Columns', 0)) if hasattr(ds, 'Columns') else None,
+            # Dose and exposure parameters
+            'organ_dose': str(getattr(ds, 'OrganDose', '')) if hasattr(ds, 'OrganDose') else None,
+            'entrance_dose_in_mgy': str(getattr(ds, 'EntranceDoseInmGy', '')) if hasattr(ds, 'EntranceDoseInmGy') else None,
+            'kvp': str(getattr(ds, 'KVP', '')) if hasattr(ds, 'KVP') else None,
+            'exposure_in_uas': str(getattr(ds, 'ExposureInuAs', '')) if hasattr(ds, 'ExposureInuAs') else None,
+            'anode_target_material': str(getattr(ds, 'AnodeTargetMaterial', '')) if hasattr(ds, 'AnodeTargetMaterial') else None,
+            'filter_material': str(getattr(ds, 'FilterMaterial', '')) if hasattr(ds, 'FilterMaterial') else None,
+            'filter_thickness': str(getattr(ds, 'FilterThicknessMinimum', '')) if hasattr(ds, 'FilterThicknessMinimum') else None,
         }
 
         # Store using storage layer

@@ -64,6 +64,46 @@
       </div>
     {% endif %}
   </div>
+
+  <div id="dose-table-container" {% if not organized_images %}style="display: none;"{% endif %}>
+    <h2 class="nhsuk-u-margin-top-5">Radiation Dose Information</h2>
+    <table class="nhsuk-table" id="dose-table">
+      <thead class="nhsuk-table__head">
+        <tr class="nhsuk-table__row">
+          <th class="nhsuk-table__header" scope="col">Laterality/View</th>
+          <th class="nhsuk-table__header" scope="col">MGD (mGy)</th>
+          <th class="nhsuk-table__header" scope="col">Entrance Dose (mGy)</th>
+          <th class="nhsuk-table__header" scope="col">kVp</th>
+          <th class="nhsuk-table__header" scope="col">Target/Filter</th>
+        </tr>
+      </thead>
+      <tbody class="nhsuk-table__body" id="dose-table-body">
+        {% if organized_images %}
+          {% for laterality_group in organized_images %}
+            {% for series_group in laterality_group.series_groups %}
+              {% for image in series_group.images %}
+                {% set laterality_view = laterality_group.laterality + series_group.view_position %}
+                <tr class="nhsuk-table__row" data-image-id="{{ image.id }}" data-laterality-view="{{ laterality_view }}">
+                  <td class="nhsuk-table__cell">{{ laterality_view }}</td>
+                  <td class="nhsuk-table__cell">{{ image.organ_dose if image.organ_dose else '—' }}</td>
+                  <td class="nhsuk-table__cell">{{ image.entrance_dose_in_mgy if image.entrance_dose_in_mgy else '—' }}</td>
+                  <td class="nhsuk-table__cell">{{ image.kvp if image.kvp else '—' }}</td>
+                  <td class="nhsuk-table__cell">
+                    {% if image.anode_target_material and image.filter_material %}
+                      {{ image.anode_target_material }}/{{ image.filter_material }}
+                      {% if image.filter_thickness %} ({{ image.filter_thickness }}mm){% endif %}
+                    {% else %}
+                      —
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            {% endfor %}
+          {% endfor %}
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
 {% endblock %}
 
 {% block extra_styles %}
@@ -318,6 +358,69 @@
     const statusElement = document.getElementById('appointment-status');
     const currentState = statusElement.getAttribute('data-state');
     updateStatusMessage(currentState);
+
+    // Add dose table row (also shows table if hidden)
+    addDoseTableRow(image, laterality);
+  }
+
+  function addDoseTableRow(image, laterality) {
+    /**
+     * Add a row to the dose table for a new image.
+     * Inserts the row in sorted order by laterality/view.
+     */
+    const doseTableContainer = document.getElementById('dose-table-container');
+    const doseTableBody = document.getElementById('dose-table-body');
+
+    if (!doseTableBody) return;
+
+    // Show the table container if it's hidden
+    if (doseTableContainer.style.display === 'none') {
+      doseTableContainer.style.display = 'block';
+    }
+
+    const lateralityView = `${laterality}${image.view_position}`;
+
+    // Format individual dose values
+    const mgd = image.organ_dose || '—';
+    const entranceDose = image.entrance_dose_in_mgy || '—';
+    const kvp = image.kvp || '—';
+
+    let targetFilter = '—';
+    if (image.anode_target_material && image.filter_material) {
+      targetFilter = `${image.anode_target_material}/${image.filter_material}`;
+      if (image.filter_thickness) {
+        targetFilter += ` (${image.filter_thickness}mm)`;
+      }
+    }
+
+    // Create row
+    const row = `
+      <tr class="nhsuk-table__row" data-image-id="${image.id}" data-laterality-view="${lateralityView}">
+        <td class="nhsuk-table__cell">${lateralityView}</td>
+        <td class="nhsuk-table__cell">${mgd}</td>
+        <td class="nhsuk-table__cell">${entranceDose}</td>
+        <td class="nhsuk-table__cell">${kvp}</td>
+        <td class="nhsuk-table__cell">${targetFilter}</td>
+      </tr>
+    `;
+
+    // Find the correct position to insert the row (sorted by laterality/view)
+    const existingRows = Array.from(doseTableBody.querySelectorAll('tr'));
+    let insertBefore = null;
+
+    for (const existingRow of existingRows) {
+      const existingLateralityView = existingRow.getAttribute('data-laterality-view');
+      if (existingLateralityView && lateralityView.localeCompare(existingLateralityView) < 0) {
+        insertBefore = existingRow;
+        break;
+      }
+    }
+
+    if (insertBefore) {
+      insertBefore.insertAdjacentHTML('beforebegin', row);
+    } else {
+      doseTableBody.insertAdjacentHTML('beforeend', row);
+    }
   }
 
   function connectImageSSE() {

@@ -199,6 +199,13 @@ def appointment_images_stream(request, clinic_id, appointment_id):
                                 'instance_number': image.instance_number,
                                 'laterality': image.laterality.upper() if image.laterality else 'N/A',
                                 'view_position': image.view_position if image.view_position else 'N/A',
+                                'organ_dose': image.organ_dose if image.organ_dose else None,
+                                'entrance_dose_in_mgy': image.entrance_dose_in_mgy if image.entrance_dose_in_mgy else None,
+                                'kvp': image.kvp if image.kvp else None,
+                                'exposure_in_uas': image.exposure_in_uas if image.exposure_in_uas else None,
+                                'anode_target_material': image.anode_target_material if image.anode_target_material else None,
+                                'filter_material': image.filter_material if image.filter_material else None,
+                                'filter_thickness': image.filter_thickness if image.filter_thickness else None,
                                 'received_at': image.received_at.strftime('%d/%m/%Y %H:%M')
                             }
                         }

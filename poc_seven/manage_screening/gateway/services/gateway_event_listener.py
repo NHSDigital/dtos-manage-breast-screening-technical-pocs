@@ -293,6 +293,9 @@ async def process_image_received_event(payload: dict) -> dict:
                 thumbnail_base64 = thumbnail_data.get("data", "")
                 thumbnail_format = thumbnail_data.get("format", "jpeg")
 
+                # Extract dose data
+                dose_data = image_data.get("dose", {})
+
                 # Create the Image record
                 image = Image(
                     series=series,
@@ -302,6 +305,13 @@ async def process_image_received_event(payload: dict) -> dict:
                     columns=image_data.get("dimensions", {}).get("columns", 0),
                     view_position=image_data.get("acquisition", {}).get("view_position", ""),
                     laterality=image_data.get("acquisition", {}).get("laterality", ""),
+                    organ_dose=dose_data.get("organ_dose", ""),
+                    entrance_dose_in_mgy=dose_data.get("entrance_dose_in_mgy", ""),
+                    kvp=dose_data.get("kvp", ""),
+                    exposure_in_uas=dose_data.get("exposure_in_uas", ""),
+                    anode_target_material=dose_data.get("anode_target_material", ""),
+                    filter_material=dose_data.get("filter_material", ""),
+                    filter_thickness=dose_data.get("filter_thickness", ""),
                     received_at=received_at,
                 )
 
