@@ -9,21 +9,27 @@
 {% endblock %}
 
 {% block content %}
-  <h1>{{ participant.first_name }} {{ participant.last_name }}</h1>
+  <h1>
+    {{ participant.first_name }} {{ participant.last_name }}
+    {% if has_images or appointment.state == 'complete' %}
+      <span id="appointment-status" data-appointment-id="{{ appointment.id }}" data-state="{{ appointment.state }}" style="margin-left: 1rem;">
+        <span class="nhsuk-u-visually-hidden">Status: </span>
+        {{ format_status(appointment.state)|safe }}
+      </span>
+    {% endif %}
+  </h1>
 
+  {% if not has_images and appointment.state != 'complete' %}
   <div class="nhsuk-inset-text">
     <span class="nhsuk-u-visually-hidden">Status: </span>
     <span id="appointment-status" data-appointment-id="{{ appointment.id }}" data-state="{{ appointment.state }}">
       {{ format_status(appointment.state)|safe }}
     </span>
-    {% if not has_images %}
-      {% if appointment.state == 'pending' %}
-        <span id="no-images-message" class="status-message"> - No images to display</span>
-      {% else %}
-        <span id="no-images-message" class="status-message"> - Awaiting images...</span>
-      {% endif %}
+    {% if appointment.state == 'sent_to_modality' or appointment.state == 'in_progress' %}
+      <span id="status-message" class="status-message"> - Awaiting images</span>
     {% endif %}
   </div>
+  {% endif %}
 
   <div id="images-container">
     {% if organized_images %}
@@ -152,29 +158,51 @@
 
   function updateStatusMessage(state) {
     const statusElement = document.getElementById('appointment-status');
-    let noImagesMessage = document.getElementById('no-images-message');
+    const statusMessage = document.getElementById('status-message');
+    const insetText = document.querySelector('.nhsuk-inset-text');
+    const h1 = document.querySelector('h1');
 
     // Check if there are any images displayed
     const hasImages = document.querySelector('[data-laterality]') !== null;
 
-    if (hasImages) {
-      // Remove message if images are present
-      if (noImagesMessage) {
-        noImagesMessage.remove();
+    if (hasImages || state === 'complete') {
+      // Move status to h1 if it's not already there
+      if (insetText && statusElement) {
+        // Remove the inset text box
+        insetText.remove();
+
+        // Create new status element in h1 if it doesn't exist there
+        if (!h1.querySelector('#appointment-status')) {
+          const newStatusSpan = document.createElement('span');
+          newStatusSpan.id = 'appointment-status';
+          newStatusSpan.setAttribute('data-appointment-id', statusElement.getAttribute('data-appointment-id'));
+          newStatusSpan.setAttribute('data-state', state);
+          newStatusSpan.style.marginLeft = '1rem';
+          newStatusSpan.innerHTML = '<span class="nhsuk-u-visually-hidden">Status: </span>' + statusElement.innerHTML;
+          h1.appendChild(newStatusSpan);
+        }
       }
     } else {
+      // Status should be in inset text
       // Update or create message based on state
-      const messageText = state === 'pending' ? ' - No images to display' : ' - Awaiting images...';
+      if (state === 'sent_to_modality' || state === 'in_progress') {
+        const messageText = ' - Awaiting images';
 
-      if (noImagesMessage) {
-        noImagesMessage.textContent = messageText;
+        if (statusMessage) {
+          statusMessage.textContent = messageText;
+        } else if (statusElement && statusElement.parentElement) {
+          // Create message if it doesn't exist
+          const newMessage = document.createElement('span');
+          newMessage.id = 'status-message';
+          newMessage.className = 'status-message';
+          newMessage.textContent = messageText;
+          statusElement.parentElement.appendChild(newMessage);
+        }
       } else {
-        // Create message if it doesn't exist
-        const newMessage = document.createElement('span');
-        newMessage.id = 'no-images-message';
-        newMessage.className = 'status-message';
-        newMessage.textContent = messageText;
-        statusElement.parentElement.appendChild(newMessage);
+        // Remove message for other states
+        if (statusMessage) {
+          statusMessage.remove();
+        }
       }
     }
   }
@@ -348,7 +376,13 @@
           console.log('Status changed:', data.state);
           const statusElement = document.getElementById('appointment-status');
           if (statusElement) {
-            statusElement.innerHTML = data.html;
+            // Update the HTML content (just the tag part)
+            const visibilitySpan = statusElement.querySelector('.nhsuk-u-visually-hidden');
+            if (visibilitySpan) {
+              statusElement.innerHTML = visibilitySpan.outerHTML + data.html;
+            } else {
+              statusElement.innerHTML = '<span class="nhsuk-u-visually-hidden">Status: </span>' + data.html;
+            }
             statusElement.setAttribute('data-state', data.state);
             // Add a brief highlight animation when status changes
             statusElement.classList.add('status-updated');

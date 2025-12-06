@@ -43,11 +43,9 @@ def get_clinic(request, clinic_id):
 def format_status(state):
     """Format appointment state for display"""
     status_map = {
-        'pending': ('Pending', 'nhsuk-tag--grey'),
-        'arrived': ('Arrived', 'nhsuk-tag--blue'),
-        'checked_in': ('Checked In', 'nhsuk-tag--blue'),
-        'sent_to_modality': ('Sent to Modality', 'nhsuk-tag--purple'),
-        'in_progress': ('In Progress', 'nhsuk-tag--yellow'),
+        'checked_in': ('Checked in', 'nhsuk-tag--grey'),
+        'sent_to_modality': ('Sent to modality', 'nhsuk-tag--purple'),
+        'in_progress': ('In progress', 'nhsuk-tag--yellow'),
         'complete': ('Complete', 'nhsuk-tag--green'),
         'cancelled': ('Cancelled', 'nhsuk-tag--red'),
     }

@@ -28,8 +28,6 @@ class ClinicSlot(models.Model):
         return f'{self.clinic}: {self.start_time}'
 
 class AppointmentState(Enum):
-    PENDING = 'pending'
-    ARRIVED = 'arrived'
     CHECKED_IN = 'checked_in'
     SENT_TO_MODALITY = 'sent_to_modality'
     IN_PROGRESS = 'in_progress'
@@ -45,7 +43,7 @@ class Appointment(models.Model):
     state = models.CharField(
         max_length=20,
         choices=[(state.value, state.name.capitalize()) for state in AppointmentState],
-        default=AppointmentState.PENDING.value
+        default=AppointmentState.CHECKED_IN.value
     )
 
     def __str__(self):
