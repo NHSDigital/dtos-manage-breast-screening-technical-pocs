@@ -314,8 +314,13 @@ def clinic_statuses_stream(request, clinic_id):
     return response
 
 def form_for(appointment_id, csrf_token, request):
-    gateway_id = Gateway.objects.last().id # we'd need to think about how we get the correct gateway Id. Is there more than one per trust?
     appointment = Appointment.objects.get(id=appointment_id)
+
+    # Don't show button if appointment is complete
+    if appointment.state == AppointmentState.COMPLETE.value:
+        return ""
+
+    gateway_id = Gateway.objects.last().id # we'd need to think about how we get the correct gateway Id. Is there more than one per trust?
     form = ScreeningOrderGatewayActionForm(initial={"appointment_id": appointment_id, "gateway_id": gateway_id})
     fields = "".join(str(field) for field in form)
 
