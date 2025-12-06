@@ -1,34 +1,104 @@
-{% from 'components/organisms/header/macro.html' import header %}
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Manage breast screening (not the real one)</title>
-    <link href="https://www.nhs.uk/" rel="preconnect">
-    <link href="https://assets.nhs.uk/" rel="preconnect" crossorigin>
+{% extends "nhsuk/template.jinja" %}
 
-    <link type="font/woff2" href="https://assets.nhs.uk/fonts/FrutigerLTW01-55Roman.woff2" rel="preload" as="font" crossorigin>
-    <link type="font/woff2" href="https://assets.nhs.uk/fonts/FrutigerLTW01-65Bold.woff2" rel="preload" as="font" crossorigin>
+{% from 'nhsuk/components/header/macro.jinja' import header %}
+{% from 'nhsuk/components/footer/macro.jinja' import footer %}
 
-    <link rel="stylesheet" href="{{ static('styles.css') }}">
-  </head>
-  <body>
-    <body>
-      {{ header({ 'service_name': 'Manage breast screening (not the real one)' }) }}
-      <div class="nhsuk-width-container ">
-        <main class="nhsuk-main-wrapper " id="maincontent" role="main">
-          <div class="nhsuk-width-container">
-            <div class="nhsuk-grid-row">
-              <div class="nhsuk-grid-column-full">
+{% set serviceName = "Manage breast screening (not the real one)" %}
 
-                {% block content %}{% endblock %}
+{% block pageTitle %}{{ serviceName }}{% endblock %}
 
-              </div>
-            </div>
-          </div>
-        </main>
-      </div>
-      {% block extra_scripts %}{% endblock %}
-    </body>
-</html>
+{% block head %}
+  <link rel="stylesheet" href="{{ static('compiled/css/main.css') }}">
+  <style>
+    /* Ensure NHS logo is always white on blue background */
+    .nhsuk-header__logo {
+      color: white;
+    }
+    /* Reduce navigation spacing */
+    @media (max-width: 40.0525em) {
+      .nhsuk-header__navigation-container {
+        margin-top: -16px;
+      }
+    }
+    /* Display logo and service name side-by-side in one link */
+    .nhsuk-header__service-logo {
+      display: inline-flex;
+      gap: 0 16px;
+      line-height: 0;
+      text-decoration: none;
+    }
+    .nhsuk-header__service-logo:hover {
+      text-decoration: none;
+    }
+    /* Vertically center service name with logo */
+    .nhsuk-header__service-name {
+      display: inline-flex;
+      flex-direction: column;
+      justify-content: center;
+      line-height: 1.1;
+      font-size: 1rem;
+      padding: 0;
+      margin: 0;
+    }
+    @media (min-width: 40.0625em) {
+      .nhsuk-header__service-name {
+        font-size: 1.1875rem;
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block header %}
+  <div class="app-environment nhsuk-tag--white">
+    <div class="nhsuk-width-container">
+      <strong class="nhsuk-tag nhsuk-tag--white">Technical POC</strong>
+      This is a technical proof of concept.
+    </div>
+  </div>
+  {{ header({
+    "service": {
+      "text": serviceName,
+      "href": "/clinics"
+    },
+    "navigation": {
+      "items": [
+        {
+          "href": "/clinics",
+          "text": "Clinics"
+        }
+      ]
+    }
+  }) }}
+{% endblock %}
+
+{% block main %}
+  <div class="nhsuk-width-container">
+    {% block beforeContent %}{% endblock %}
+    <main class="nhsuk-main-wrapper" id="maincontent" role="main">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+{% endblock %}
+
+{% block footer %}
+  {{ footer({
+    "meta": {
+      "items": [
+        {
+          "href": "/clinics",
+          "text": "Clinics"
+        }
+      ]
+    }
+  }) }}
+{% endblock %}
+
+{% block bodyEnd %}
+  <script src="https://cdn.jsdelivr.net/npm/nhsuk-frontend@8.3.0/dist/nhsuk.min.js" defer></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      window.NHSFrontend.initAll();
+    });
+  </script>
+  {% block extra_scripts %}{% endblock %}
+{% endblock %}

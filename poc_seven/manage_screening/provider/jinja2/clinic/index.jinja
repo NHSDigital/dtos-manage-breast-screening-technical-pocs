@@ -1,8 +1,16 @@
 {% extends "layout.html" %}
-{% from 'components/molecules/table/macro.html' import table %}
+{% from 'nhsuk/components/tables/macro.jinja' import table %}
 
 {% block content %}
   <h1>Clinics</h1>
 
-  {{ table(headers, rows) }}
+  {{ table({
+    "responsive": True,
+    "panel_title": "Clinics",
+    "head": [
+      {"text": headers[0]},
+      {"text": headers[1]}
+    ],
+    "rows": rows
+  }) }}
 {% endblock %}

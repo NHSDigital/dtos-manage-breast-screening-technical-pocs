@@ -1,0 +1,33 @@
+// NHS.UK frontend library
+@use "vendor/nhsuk-frontend/base" as *;
+@forward "vendor/nhsuk-frontend";
+
+h1 {
+  @extend %nhsuk-heading-l;
+}
+
+h2 {
+  @extend %nhsuk-heading-m;
+}
+
+h3 {
+  @extend %nhsuk-heading-s;
+}
+
+// Environment banner
+.app-environment {
+  @include nhsuk-font-size(14);
+  @include nhsuk-responsive-padding(2, "top");
+  @include nhsuk-responsive-padding(2, "bottom");
+
+  .nhsuk-link {
+    color: inherit;
+  }
+
+  .nhsuk-width-container {
+    align-items: baseline;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+  }
+}

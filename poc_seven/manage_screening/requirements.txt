@@ -5,3 +5,4 @@ python-dotenv~=1.0
 jinja2~=3.0
 websockets~=15.0
 Pillow~=12.0
+nhsuk-frontend-jinja~=0.6.1
