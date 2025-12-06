@@ -71,38 +71,64 @@ def appointment_statuses(request, clinic_id):
 
 def get_appointment(request, clinic_id, appointment_id):
     """View for individual appointment detail page"""
-    from gateway.models import Study
+    from gateway.models import Study, Image
     from collections import defaultdict
 
     clinic = get_object_or_404(Clinic, id=clinic_id)
     appointment = get_object_or_404(Appointment, id=appointment_id, clinic_slot__clinic=clinic)
 
-    # Get all studies for this appointment with their images
-    studies = Study.objects.filter(
-        appointment=appointment
-    ).prefetch_related('series__images').order_by('created_at')
+    # Get all images for this appointment
+    images = Image.objects.filter(
+        series__study__appointment=appointment
+    ).select_related('series__study').order_by('series__series_instance_uid', 'instance_number', 'received_at')
 
-    # Group images by study
-    studies_with_images = []
-    for study in studies:
-        images = []
-        for series in study.series.all():
-            images.extend(series.images.all())
+    # Group images by laterality, then by series
+    images_by_laterality = defaultdict(lambda: defaultdict(list))
 
-        if images:
-            # Sort images by series_instance_uid, then instance_number, then received_at
-            # This matches the ordering used in the API endpoints
-            images.sort(key=lambda x: (x.series.series_instance_uid, int(x.instance_number or 999), x.received_at))
-            studies_with_images.append({
-                'study': study,
-                'images': images
-            })
+    for image in images:
+        laterality = image.laterality.upper() if image.laterality else 'UNKNOWN'
+        series_id = image.series.id
+        view_position = image.view_position if image.view_position else 'N/A'
+
+        images_by_laterality[laterality][series_id].append({
+            'image': image,
+            'view_position': view_position
+        })
+
+    # Convert to list format for template
+    # Order: Right (R) first (displays on left), then Left (L) (displays on right) - reversed for display
+    laterality_order = ['R', 'L', 'UNKNOWN']
+    organized_images = []
+
+    for laterality in laterality_order:
+        if laterality in images_by_laterality:
+            series_groups = []
+            for series_id, image_list in images_by_laterality[laterality].items():
+                if image_list:
+                    # Get view position from first image in series
+                    view_position = image_list[0]['view_position']
+                    series_groups.append({
+                        'series_id': series_id,
+                        'view_position': view_position,
+                        'images': [item['image'] for item in image_list],
+                        'count': len(image_list)
+                    })
+
+            if series_groups:
+                # Display laterality opposite to anatomical position (right appears on left of screen)
+                display_laterality = 'Right breast' if laterality == 'R' else 'Left breast' if laterality == 'L' else 'Unknown'
+                organized_images.append({
+                    'laterality': laterality,
+                    'laterality_display': display_laterality,
+                    'series_groups': series_groups
+                })
 
     return render(request, "clinic/appointment.jinja", {
         "clinic": clinic,
         "appointment": appointment,
         "participant": appointment.participant,
-        "studies_with_images": studies_with_images,
+        "organized_images": organized_images,
+        "has_images": len(images) > 0,
         "format_status": format_status
     })
 
