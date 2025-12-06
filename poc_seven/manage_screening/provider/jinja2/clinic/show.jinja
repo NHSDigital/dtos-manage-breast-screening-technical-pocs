@@ -1,10 +1,21 @@
 {% extends "layout.html" %}
-{% from 'components/molecules/table/macro.html' import table %}
+{% from 'nhsuk/components/tables/macro.jinja' import table %}
 
 {% block content %}
   <h1>Clinic appointments</h1>
 
-  {{ table(headers, rows) }}
+  {{ table({
+    "responsive": True,
+    "panel_title": "Appointments",
+    "head": [
+      {"text": headers[0]},
+      {"text": headers[1]},
+      {"text": headers[2]},
+      {"text": headers[3]},
+      {"text": headers[4]}
+    ],
+    "rows": rows
+  }) }}
 {% endblock %}
 
 {% block extra_scripts %}

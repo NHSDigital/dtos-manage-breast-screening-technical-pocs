@@ -1,0 +1,13 @@
+{
+  "name": "manage-screening",
+  "type": "module",
+  "scripts": {
+    "compile:css": "sass --color --quiet-deps --load-path=node_modules assets/sass:assets/compiled/css"
+  },
+  "dependencies": {
+    "nhsuk-frontend": "^10.2.2"
+  },
+  "devDependencies": {
+    "sass-embedded": "^1.93.3"
+  }
+}

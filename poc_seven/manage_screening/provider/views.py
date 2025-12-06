@@ -15,8 +15,8 @@ def clinic_index(request):
     headers = ["Date", ""]
     rows = [
                 [
-                    {"text": clinic.date}, 
-                    {"html": f'<a href="/clinic/{clinic.id}">Open</a>'}, 
+                    {"text": clinic.date.strftime('%d/%m/%Y')},
+                    {"html": f'<a href="/clinic/{clinic.id}">Open</a>'},
                 ] for clinic in clinics
             ]
     return render(request, "clinic/index.jinja", {"clinics": clinics, "headers": headers, "rows": rows})
@@ -29,9 +29,9 @@ def get_clinic(request, clinic_id):
     headers = ["Time", "Participant", "Date of birth", "Status", ""]
     rows = [
                 [
-                    {"text": appointment.clinic_slot.start_time},
+                    {"text": appointment.clinic_slot.start_time.strftime('%H:%M')},
                     {"html": f'<a href="/clinic/{clinic.id}/appointment/{appointment.id}">{appointment.participant}</a>'},
-                    {"text": appointment.participant.date_of_birth},
+                    {"text": appointment.participant.date_of_birth.strftime('%d/%m/%Y')},
                     {"html": f'<span class="appointment-status" data-appointment-id="{appointment.id}">{format_status(appointment.state)}</span>'},
                     {"html": form_for(appointment.id, csrf_token, request)},
                 ] for appointment in appointments
