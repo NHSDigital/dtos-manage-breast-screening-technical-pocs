@@ -16,7 +16,7 @@
     <span id="appointment-status" data-appointment-id="{{ appointment.id }}" data-state="{{ appointment.state }}">
       {{ format_status(appointment.state)|safe }}
     </span>
-    {% if not studies_with_images %}
+    {% if not has_images %}
       {% if appointment.state == 'pending' %}
         <span id="no-images-message" class="status-message"> - No images to display</span>
       {% else %}
@@ -26,38 +26,36 @@
   </div>
 
   <div id="images-container">
-    {% if studies_with_images %}
-      {% for study_data in studies_with_images %}
-        <div class="study-group" data-study-id="{{ study_data.study.id }}">
-          <h2 class="study-heading">Study: {{ study_data.study.accession_number }} - {{ study_data.study.study_date[:4] }}/{{ study_data.study.study_date[4:6] }}/{{ study_data.study.study_date[6:] }} {{ study_data.study.study_time[:2] }}:{{ study_data.study.study_time[2:4] }}</h2>
-          <div class="image-list">
-            {% for image in study_data.images %}
-              <div class="image-panel" data-image-id="{{ image.id }}" data-series-id="{{ image.series.id }}" data-instance-number="{{ image.instance_number }}">
-                <div class="nhsuk-grid-row">
-                  <div class="nhsuk-grid-column-one-third">
-                    <div class="image-thumbnail">
-                      <img src="{{ image.thumbnail.url }}" alt="Image {{ image.instance_number }}">
+    {% if organized_images %}
+      <div class="nhsuk-grid-row">
+        {% for laterality_group in organized_images %}
+          <div class="nhsuk-grid-column-one-half" data-laterality="{{ laterality_group.laterality }}">
+            <div class="nhsuk-card nhsuk-card--feature">
+              <div class="nhsuk-card__content nhsuk-card__content--feature">
+                <h2 class="nhsuk-card__heading nhsuk-card__heading--feature">
+                  {{ laterality_group.laterality_display }}
+                </h2>
+
+                {% for series_group in laterality_group.series_groups %}
+                  <div class="series-group {% if not loop.last %}nhsuk-u-margin-bottom-3{% endif %}" data-series-id="{{ series_group.series_id }}">
+                    <h3 class="nhsuk-u-margin-bottom-2">
+                      {{ series_group.count }}× {{ series_group.view_position }}
+                    </h3>
+                    <div class="image-thumbnails">
+                      {% for image in series_group.images %}
+                        <div class="app-mammogram-image--placeholder nhsuk-u-margin-right-3" style="float:left" data-image-id="{{ image.id }}" data-instance-number="{{ image.instance_number }}">
+                          <img class="nhsuk-image__img" src="{{ image.thumbnail.url }}" alt="">
+                        </div>
+                      {% endfor %}
+                      <div style="clear:both"></div>
                     </div>
                   </div>
-                  <div class="nhsuk-grid-column-two-thirds">
-                    <div class="image-details">
-                      <div class="image-detail-row">
-                        <strong>Side:</strong> {{ image.laterality|upper if image.laterality else 'N/A' }}
-                      </div>
-                      <div class="image-detail-row">
-                        <strong>View:</strong> {{ image.view_position if image.view_position else 'N/A' }}
-                      </div>
-                      <div class="image-detail-row">
-                        <strong>Received:</strong> {{ image.received_at.strftime('%d/%m/%Y %H:%M') }}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                {% endfor %}
               </div>
-            {% endfor %}
+            </div>
           </div>
-        </div>
-      {% endfor %}
+        {% endfor %}
+      </div>
     {% endif %}
   </div>
 {% endblock %}
@@ -69,51 +67,16 @@
     font-weight: normal;
   }
 
-  .study-group {
-    margin-bottom: 3rem;
-  }
-
-  .study-heading {
-    font-size: 1.5rem;
-    font-weight: 600;
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 2px solid #005eb8;
-    color: #005eb8;
-  }
-
-  .image-list {
-    margin-top: 1rem;
-  }
-
-  .image-panel {
-    background-color: #f5f5f5;
-    padding: 1.5rem;
-    border-radius: 4px;
-    margin-bottom: 1rem;
-  }
-
-  .image-thumbnail img {
-    max-width: 100%;
-    width: 100%;
-    height: auto;
-    border: 1px solid #ccc;
-    display: block;
-  }
-
-  .image-details {
-    padding-top: 0.5rem;
-  }
-
-  .image-detail-row {
-    line-height: 1.6;
-    font-size: 1.125rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .image-detail-row strong {
+  .app-mammogram-image--placeholder {
+    width: 150px;
+    height: 150px;
     display: inline-block;
-    min-width: 110px;
+  }
+
+  .app-mammogram-image--placeholder img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
   }
 
   .image-added {
@@ -150,47 +113,39 @@
   let imageEventSource = null;
   let statusEventSource = null;
 
-  function formatStudyDateTime(studyDate, studyTime) {
-    // Convert YYYYMMDD to YYYY/MM/DD
-    const date = `${studyDate.substring(0, 4)}/${studyDate.substring(4, 6)}/${studyDate.substring(6, 8)}`;
-    // Convert HHMMSS to HH:MM
-    const time = `${studyTime.substring(0, 2)}:${studyTime.substring(2, 4)}`;
-    return `${date} ${time}`;
-  }
+  // Store series data by laterality and series
+  const seriesData = {};
 
-  function createStudyGroup(study) {
-    const dateTime = formatStudyDateTime(study.study_date, study.study_time);
+  function createLateralityCard(laterality, lateralityDisplay) {
     return `
-      <div class="study-group" data-study-id="${study.id}">
-        <h2 class="study-heading">Study: ${study.accession_number} - ${dateTime}</h2>
-        <div class="image-list"></div>
+      <div class="nhsuk-grid-column-one-half" data-laterality="${laterality}">
+        <div class="nhsuk-card nhsuk-card--feature">
+          <div class="nhsuk-card__content nhsuk-card__content--feature">
+            <h2 class="nhsuk-card__heading nhsuk-card__heading--feature">
+              ${lateralityDisplay}
+            </h2>
+          </div>
+        </div>
       </div>
     `;
   }
 
-  function createImagePanel(image) {
+  function createSeriesGroup(viewPosition, count, seriesId) {
     return `
-      <div class="image-panel image-added" data-image-id="${image.id}" data-series-id="${image.series_id}" data-instance-number="${image.instance_number}">
-        <div class="nhsuk-grid-row">
-          <div class="nhsuk-grid-column-one-third">
-            <div class="image-thumbnail">
-              <img src="${image.thumbnail_url}" alt="Image ${image.instance_number}">
-            </div>
-          </div>
-          <div class="nhsuk-grid-column-two-thirds">
-            <div class="image-details">
-              <div class="image-detail-row">
-                <strong>Side:</strong> ${image.laterality}
-              </div>
-              <div class="image-detail-row">
-                <strong>View:</strong> ${image.view_position}
-              </div>
-              <div class="image-detail-row">
-                <strong>Received:</strong> ${image.received_at}
-              </div>
-            </div>
-          </div>
+      <div class="series-group" data-series-id="${seriesId}">
+        <h3 class="nhsuk-u-margin-bottom-2">
+          ${count}× ${viewPosition}
+        </h3>
+        <div class="image-thumbnails">
         </div>
+      </div>
+    `;
+  }
+
+  function createImageThumbnail(image) {
+    return `
+      <div class="app-mammogram-image--placeholder nhsuk-u-margin-right-3 image-added" style="float:left" data-image-id="${image.id}" data-instance-number="${image.instance_number}">
+        <img class="nhsuk-image__img" src="${image.thumbnail_url}" alt="">
       </div>
     `;
   }
@@ -200,7 +155,7 @@
     let noImagesMessage = document.getElementById('no-images-message');
 
     // Check if there are any images displayed
-    const hasImages = document.querySelector('.study-group') !== null;
+    const hasImages = document.querySelector('[data-laterality]') !== null;
 
     if (hasImages) {
       // Remove message if images are present
@@ -228,55 +183,110 @@
     const container = document.getElementById('images-container');
 
     // Check if image already exists
-    const existingPanel = document.querySelector(`[data-image-id="${image.id}"]`);
-    if (existingPanel) {
+    const existingImage = document.querySelector(`[data-image-id="${image.id}"]`);
+    if (existingImage) {
       return; // Image already displayed
     }
 
-    // Check if study group exists
-    let studyGroup = document.querySelector(`[data-study-id="${study.id}"]`);
+    // Determine laterality
+    const laterality = image.laterality.toUpperCase();
+    const lateralityDisplay = laterality === 'R' ? 'Right breast' : laterality === 'L' ? 'Left breast' : 'Unknown';
 
-    if (!studyGroup) {
-      // Create new study group
-      container.insertAdjacentHTML('beforeend', createStudyGroup(study));
-      studyGroup = document.querySelector(`[data-study-id="${study.id}"]`);
+    // Check if we have a grid row
+    let gridRow = container.querySelector('.nhsuk-grid-row');
+    if (!gridRow) {
+      gridRow = document.createElement('div');
+      gridRow.className = 'nhsuk-grid-row';
+      container.appendChild(gridRow);
     }
 
-    // Add image to the study's image list in sorted order
-    const imageList = studyGroup.querySelector('.image-list');
-    const existingImages = Array.from(imageList.querySelectorAll('.image-panel'));
+    // Check if laterality card exists
+    let lateralityCard = gridRow.querySelector(`[data-laterality="${laterality}"]`);
+    if (!lateralityCard) {
+      // Create laterality card in correct position (R before L)
+      const lateralityOrder = ['R', 'L'];
+      const lateralityIndex = lateralityOrder.indexOf(laterality);
 
-    // Find the correct position to insert the new image
-    // Sort by: series_id (alphabetically), then instance_number (numerically)
-    let insertBeforeElement = null;
-    for (const existingImage of existingImages) {
-      const existingSeriesId = existingImage.getAttribute('data-series-id') || '';
-      const existingInstanceNum = parseInt(existingImage.getAttribute('data-instance-number') || '999', 10);
-      const newSeriesId = image.series_id || '';
-      const newInstanceNum = parseInt(image.instance_number || '999', 10);
+      if (lateralityIndex === 0 || gridRow.children.length === 0) {
+        // Insert at beginning
+        gridRow.insertAdjacentHTML('afterbegin', createLateralityCard(laterality, lateralityDisplay));
+      } else {
+        // Insert after first card
+        gridRow.insertAdjacentHTML('beforeend', createLateralityCard(laterality, lateralityDisplay));
+      }
 
-      // Compare series first
-      if (newSeriesId < existingSeriesId) {
-        insertBeforeElement = existingImage;
+      lateralityCard = gridRow.querySelector(`[data-laterality="${laterality}"]`);
+    }
+
+    // Get the card content
+    const cardContent = lateralityCard.querySelector('.nhsuk-card__content--feature');
+
+    // Check if series group exists
+    let seriesGroup = cardContent.querySelector(`[data-series-id="${image.series_id}"]`);
+    if (!seriesGroup) {
+      // Track series in our data structure
+      const seriesKey = `${laterality}-${image.series_id}`;
+      if (!seriesData[seriesKey]) {
+        seriesData[seriesKey] = {
+          count: 0,
+          viewPosition: image.view_position
+        };
+      }
+      seriesData[seriesKey].count++;
+
+      // Create series group
+      cardContent.insertAdjacentHTML('beforeend', createSeriesGroup(
+        image.view_position,
+        seriesData[seriesKey].count,
+        image.series_id
+      ));
+      seriesGroup = cardContent.querySelector(`[data-series-id="${image.series_id}"]`);
+    } else {
+      // Update count in existing series group
+      const seriesKey = `${laterality}-${image.series_id}`;
+      if (!seriesData[seriesKey]) {
+        seriesData[seriesKey] = {
+          count: seriesGroup.querySelectorAll('[data-image-id]').length,
+          viewPosition: image.view_position
+        };
+      }
+      seriesData[seriesKey].count++;
+
+      // Update heading
+      const heading = seriesGroup.querySelector('h3');
+      heading.textContent = `${seriesData[seriesKey].count}× ${image.view_position}`;
+    }
+
+    // Add image to thumbnails container
+    const thumbnailsContainer = seriesGroup.querySelector('.image-thumbnails');
+
+    // Find correct position based on instance number
+    const existingThumbnails = Array.from(thumbnailsContainer.querySelectorAll('[data-image-id]'));
+    const newInstanceNum = parseInt(image.instance_number || '999', 10);
+
+    let insertBefore = null;
+    for (const thumb of existingThumbnails) {
+      const thumbInstanceNum = parseInt(thumb.getAttribute('data-instance-number') || '999', 10);
+      if (newInstanceNum < thumbInstanceNum) {
+        insertBefore = thumb;
         break;
-      } else if (newSeriesId === existingSeriesId) {
-        // Same series, compare instance number
-        if (newInstanceNum < existingInstanceNum) {
-          insertBeforeElement = existingImage;
-          break;
-        }
       }
     }
 
-    if (insertBeforeElement) {
-      // Insert before the found element
-      insertBeforeElement.insertAdjacentHTML('beforebegin', createImagePanel(image));
+    if (insertBefore) {
+      insertBefore.insertAdjacentHTML('beforebegin', createImageThumbnail(image));
     } else {
-      // Append to end if no suitable position found
-      imageList.insertAdjacentHTML('beforeend', createImagePanel(image));
+      // Insert before the clear div if it exists, or at end
+      const clearDiv = thumbnailsContainer.querySelector('div[style*="clear"]');
+      if (clearDiv) {
+        clearDiv.insertAdjacentHTML('beforebegin', createImageThumbnail(image));
+      } else {
+        thumbnailsContainer.insertAdjacentHTML('beforeend', createImageThumbnail(image));
+        thumbnailsContainer.insertAdjacentHTML('beforeend', '<div style="clear:both"></div>');
+      }
     }
 
-    // Update status message (will remove it now that we have images)
+    // Update status message
     const statusElement = document.getElementById('appointment-status');
     const currentState = statusElement.getAttribute('data-state');
     updateStatusMessage(currentState);
