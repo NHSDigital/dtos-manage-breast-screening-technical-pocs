@@ -19,6 +19,7 @@ from typing import Optional
 import uuid
 from datetime import datetime, timezone
 
+from PIL import Image
 from relay_event_sender import send_image_event_sync
 from thumbnail_generator import generate_thumbnail
 
@@ -137,6 +138,22 @@ def encode_thumbnail_base64(thumbnail_path: Path) -> Optional[str]:
         return None
 
 
+def get_thumbnail_dimensions(thumbnail_path: Path) -> tuple[int, int]:
+    """
+    Get dimensions of a JPEG thumbnail.
+
+    Args:
+        thumbnail_path: Path to thumbnail JPEG file
+
+    Returns:
+        Tuple of (width, height), or (0, 0) if unable to read
+    """
+    try:
+        with Image.open(thumbnail_path) as img:
+            return img.size
+    except Exception as e:
+        logger.error(f"Error reading thumbnail dimensions: {e}")
+        return (0, 0)
 
 
 def get_action_id_for_accession(accession_number: Optional[str]) -> Optional[str]:
@@ -178,6 +195,7 @@ def get_action_id_for_accession(accession_number: Optional[str]) -> Optional[str
 def build_image_received_message(
     instance: dict,
     thumbnail_b64: Optional[str],
+    thumbnail_dims: tuple[int, int],
     action_id: Optional[str]
 ) -> dict:
     """
@@ -186,6 +204,7 @@ def build_image_received_message(
     Args:
         instance: Dictionary of instance metadata from database
         thumbnail_b64: Base64 encoded thumbnail, or None if not available
+        thumbnail_dims: Tuple of (width, height) for the thumbnail
         action_id: Optional action_id to link back to originating worklist action
 
     Returns:
@@ -229,6 +248,15 @@ def build_image_received_message(
                     "view_position": instance.get("view_position"),
                     "laterality": instance.get("laterality")
                 },
+                "dose": {
+                    "organ_dose": instance.get("organ_dose"),
+                    "entrance_dose_in_mgy": instance.get("entrance_dose_in_mgy"),
+                    "kvp": instance.get("kvp"),
+                    "exposure_in_uas": instance.get("exposure_in_uas"),
+                    "anode_target_material": instance.get("anode_target_material"),
+                    "filter_material": instance.get("filter_material"),
+                    "filter_thickness": instance.get("filter_thickness")
+                },
                 "received_at": instance.get("received_at")
             }
         }
@@ -238,27 +266,43 @@ def build_image_received_message(
     if thumbnail_b64:
         message["parameters"]["image"]["thumbnail"] = {
             "data": thumbnail_b64,
-            "format": "jpeg"
+            "format": "jpeg",
+            "width": thumbnail_dims[0],
+            "height": thumbnail_dims[1]
         }
 
     return message
 
 
-def send_image_message(message: dict) -> bool:
+def send_image_message(message: dict, max_retries: int = 3) -> bool:
     """
-    Send image_received message via Azure Relay to manage-screening.
+    Send image_received message via Azure Relay to manage-screening with retry logic.
 
     Args:
         message: The image_received message dictionary
+        max_retries: Maximum number of retry attempts
 
     Returns:
         True if sent successfully, False otherwise
     """
-    try:
-        return send_image_event_sync(message)
-    except Exception as e:
-        logger.error(f"Error sending image message: {e}")
-        return False
+    for attempt in range(max_retries):
+        try:
+            if send_image_event_sync(message):
+                return True
+            else:
+                logger.warning(f"Failed to send image message (attempt {attempt + 1}/{max_retries})")
+                if attempt < max_retries - 1:
+                    import time
+                    # Exponential backoff: 1s, 2s, 4s
+                    time.sleep(2 ** attempt)
+        except Exception as e:
+            logger.error(f"Error sending image message (attempt {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                import time
+                time.sleep(2 ** attempt)
+
+    logger.error(f"Failed to send image message after {max_retries} attempts")
+    return False
 
 
 def process_pending_images():

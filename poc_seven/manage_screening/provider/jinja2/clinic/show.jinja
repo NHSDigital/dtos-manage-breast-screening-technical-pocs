@@ -1,40 +1,138 @@
 {% extends "layout.html" %}
-{% from 'components/molecules/table/macro.html' import table %}
+{% from 'nhsuk/components/tables/macro.jinja' import table %}
 
 {% block content %}
   <h1>Clinic appointments</h1>
 
-  {{ table(headers, rows) }}
+  {{ table({
+    "responsive": True,
+    "panel_title": "Appointments",
+    "head": [
+      {"text": headers[0]},
+      {"text": headers[1]},
+      {"text": headers[2]},
+      {"text": headers[3]},
+      {"text": headers[4]}
+    ],
+    "rows": rows
+  }) }}
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
-  // Poll for appointment status updates every 3 seconds
+  // Use Server-Sent Events for real-time appointment status updates
   const clinicId = "{{ clinic.id }}";
-  const pollInterval = 3000; // 3 seconds
+  let statusEventSource = null;
 
-  function updateStatuses() {
-    fetch(`/api/clinic/${clinicId}/statuses`)
-      .then(response => response.json())
-      .then(statuses => {
-        // Update each appointment status
-        Object.entries(statuses).forEach(([appointmentId, data]) => {
-          const statusElement = document.querySelector(`[data-appointment-id="${appointmentId}"]`);
-          if (statusElement && statusElement.innerHTML !== data.html) {
-            // Add a brief highlight animation when status changes
-            statusElement.innerHTML = data.html;
-            statusElement.classList.add('status-updated');
-            setTimeout(() => statusElement.classList.remove('status-updated'), 1000);
+  // Handle form submissions via AJAX
+  document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('submit', function(event) {
+      const form = event.target;
+      if (form.matches('form[action="/gateway-actions/screening-order/"]')) {
+        event.preventDefault();
+
+        const formData = new FormData(form);
+        const button = form.querySelector('button[type="submit"]');
+
+        // Disable button during submission
+        if (button) {
+          button.disabled = true;
+        }
+
+        fetch(form.action, {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        })
+        .then(response => response.json())
+        .then(data => {
+          console.log('Form submitted successfully:', data);
+          // Status will be updated by SSE
+        })
+        .catch(error => {
+          console.error('Error submitting form:', error);
+          // Re-enable button on error
+          if (button) {
+            button.disabled = false;
           }
         });
-      })
-      .catch(error => {
-        console.error('Error fetching appointment statuses:', error);
-      });
+      }
+    });
+  });
+
+  function connectStatusSSE() {
+    // Close existing connection if any
+    if (statusEventSource) {
+      statusEventSource.close();
+    }
+
+    // Establish SSE connection for clinic status updates
+    const statusSSEUrl = `/api/clinic/${clinicId}/statuses/stream`;
+    statusEventSource = new EventSource(statusSSEUrl);
+
+    statusEventSource.onmessage = function(event) {
+      try {
+        const data = JSON.parse(event.data);
+
+        if (data.type === 'connected') {
+          console.log('Clinic status SSE connection established');
+        } else if (data.type === 'status_change') {
+          // Update the specific appointment status
+          const statusElement = document.querySelector(`[data-appointment-id="${data.appointment_id}"]`);
+          if (statusElement && statusElement.innerHTML !== data.html) {
+            statusElement.innerHTML = data.html;
+            // Add a brief highlight animation when status changes
+            statusElement.classList.add('status-updated');
+            setTimeout(() => statusElement.classList.remove('status-updated'), 1000);
+
+            // Find the table row containing this status element
+            const row = statusElement.closest('tr');
+            if (row) {
+              const buttonCell = row.querySelector('td:last-child');
+              if (buttonCell) {
+                // Hide the button if status is complete
+                if (data.state === 'complete') {
+                  buttonCell.innerHTML = '';
+                }
+                // Update button text to "Resend" if status is sent_to_modality
+                else if (data.state === 'sent_to_modality') {
+                  const button = buttonCell.querySelector('button[type="submit"]');
+                  if (button) {
+                    button.textContent = 'Resend';
+                    button.disabled = false;
+                  }
+                }
+              }
+            }
+          }
+        } else if (data.type === 'error') {
+          console.error('Clinic status SSE error:', data.message);
+        }
+      } catch (error) {
+        console.error('Error parsing clinic status SSE message:', error);
+      }
+    };
+
+    statusEventSource.onerror = function(error) {
+      console.error('Clinic status SSE connection error:', error);
+      statusEventSource.close();
+
+      // Attempt to reconnect after 5 seconds
+      setTimeout(connectStatusSSE, 5000);
+    };
   }
 
-  // Start polling when page loads
-  setInterval(updateStatuses, pollInterval);
+  // Start SSE connection when page loads
+  connectStatusSSE();
+
+  // Clean up connection when page unloads
+  window.addEventListener('beforeunload', function() {
+    if (statusEventSource) {
+      statusEventSource.close();
+    }
+  });
 </script>
 
 <style>

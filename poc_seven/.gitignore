@@ -14,6 +14,7 @@ ENV/
 *.egg-info/
 .venv/
 .python-version
+node_modules/
 
 # Logs
 *.log

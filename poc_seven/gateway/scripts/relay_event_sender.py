@@ -16,6 +16,7 @@ import hashlib
 import hmac
 import time
 import logging
+import threading
 from typing import Optional, Dict
 from datetime import datetime, timezone
 
@@ -60,22 +61,30 @@ class RelayEventSender:
 
     def __init__(self):
         self._connection = None
-        self._lock = asyncio.Lock()
+        self._thread_lock = threading.Lock()  # Use thread lock for connection management
+        self._send_lock = None  # Asyncio lock for send operations (created in async context)
 
     async def _ensure_connection(self):
         """Ensure we have an active relay connection."""
         if not SHARED_ACCESS_KEY:
             raise ValueError("Azure Relay shared access key not configured")
 
-        async with self._lock:
+        with self._thread_lock:
             # Check if connection exists and is open
             if self._connection:
                 try:
-                    if self._connection.state.name == "OPEN":
+                    # Check connection state more thoroughly
+                    if hasattr(self._connection, 'state') and self._connection.state.name == "OPEN":
+                        # Verify it's actually usable
                         return self._connection
+                except Exception as e:
+                    logger.debug(f"Connection check failed: {e}")
+                # Connection closed or invalid, clean up
+                try:
+                    if self._connection:
+                        await self._connection.close()
                 except Exception:
                     pass
-                # Connection closed, clean up
                 self._connection = None
 
             # Create new connection
@@ -118,6 +127,9 @@ class RelayEventSender:
             True if sent successfully, False otherwise
         """
         try:
+            # ALWAYS create a fresh connection for each message
+            # Azure Relay rendezvous pattern requires new connection per send
+            self._connection = None
             conn = await self._ensure_connection()
 
             # Build the event payload
@@ -141,18 +153,36 @@ class RelayEventSender:
                 f"accession={accession_number}, status={status}"
             )
 
-            # Wait for acknowledgment (with short timeout)
+            # Wait for acknowledgment (with timeout)
             try:
-                response = await asyncio.wait_for(conn.recv(), timeout=5)
+                response = await asyncio.wait_for(conn.recv(), timeout=10)
                 response_data = json.loads(response)
                 logger.info(f"Received acknowledgment: {response_data}")
-                return True
+
+                # Close connection after successful send/recv
+                await conn.close()
+                self._connection = None
+
+                # Check if Django actually succeeded
+                status_result = response_data.get("status")
+                if status_result in ["updated", "action_not_found", "appointment_not_found"]:
+                    # These are all valid responses (action_not_found is expected if action was created before this feature)
+                    return True
+                else:
+                    logger.warning(f"Django reported unexpected status: {status_result}")
+                    return status_result not in ["error", "unknown_status"]
+
             except asyncio.TimeoutError:
-                logger.warning("Timeout waiting for acknowledgment (event likely delivered)")
-                return True  # Still consider it sent
+                logger.error("Timeout waiting for MPPS acknowledgment - message may not have been delivered")
+                self._connection = None
+                return False
+            except Exception as e:
+                logger.error(f"Error receiving MPPS acknowledgment: {e}")
+                self._connection = None
+                return False
 
         except Exception as e:
-            logger.error(f"Error sending MPPS event: {e}")
+            logger.error(f"Error sending MPPS event: {e}", exc_info=True)
             # Clear connection on error
             self._connection = None
             return False
@@ -167,30 +197,58 @@ class RelayEventSender:
         Returns:
             True if sent successfully, False otherwise
         """
-        try:
-            conn = await self._ensure_connection()
+        # Ensure we have an asyncio lock for this event loop
+        if self._send_lock is None:
+            self._send_lock = asyncio.Lock()
 
-            # Send the event (message_dict already has proper structure)
-            await conn.send(json.dumps(message_dict))
-
-            sop_uid = message_dict.get("parameters", {}).get("image", {}).get("sop_instance_uid", "unknown")
-            logger.info(f"Sent image event: sop_instance_uid={sop_uid}")
-
-            # Wait for acknowledgment (with short timeout)
+        # Acquire lock to ensure only one send/recv happens at a time
+        async with self._send_lock:
+            conn = None
             try:
-                response = await asyncio.wait_for(conn.recv(), timeout=5)
-                response_data = json.loads(response)
-                logger.info(f"Received acknowledgment: {response_data}")
-                return True
-            except asyncio.TimeoutError:
-                logger.warning("Timeout waiting for acknowledgment (event likely delivered)")
-                return True  # Still consider it sent
+                # ALWAYS create a fresh connection for each message
+                # Azure Relay rendezvous pattern requires new connection per send
+                self._connection = None
+                conn = await self._ensure_connection()
 
-        except Exception as e:
-            logger.error(f"Error sending image event: {e}")
-            # Clear connection on error
-            self._connection = None
-            return False
+                # Send the event (message_dict already has proper structure)
+                await conn.send(json.dumps(message_dict))
+
+                sop_uid = message_dict.get("parameters", {}).get("image", {}).get("sop_instance_uid", "unknown")
+                logger.info(f"Sent image event: sop_instance_uid={sop_uid}")
+
+                # Wait for acknowledgment (with timeout)
+                try:
+                    response = await asyncio.wait_for(conn.recv(), timeout=10)
+                    response_data = json.loads(response)
+                    logger.info(f"Received acknowledgment: {response_data}")
+
+                    # Close connection after successful send/recv
+                    await conn.close()
+                    self._connection = None
+
+                    # Check if Django actually succeeded
+                    status = response_data.get("status")
+                    if status in ["created", "already_exists"]:
+                        return True
+                    else:
+                        logger.error(f"Django reported non-success status: {status}")
+                        return False
+
+                except asyncio.TimeoutError:
+                    logger.error("Timeout waiting for acknowledgment - message may not have been delivered")
+                    self._connection = None
+                    return False
+                except Exception as e:
+                    logger.error(f"Error receiving acknowledgment: {e}")
+                    # Clear connection on error so next send will create a new one
+                    self._connection = None
+                    return False
+
+            except Exception as e:
+                logger.error(f"Error sending image event: {e}", exc_info=True)
+                # Clear connection on error
+                self._connection = None
+                return False
 
     async def close(self):
         """Close the relay connection."""
@@ -215,6 +273,10 @@ def get_event_sender() -> RelayEventSender:
     return _event_sender
 
 
+# Global threading lock for synchronous sends
+_sync_send_lock = threading.Lock()
+
+
 def send_mpps_event_sync(
     action_id: str,
     accession_number: str,
@@ -225,7 +287,8 @@ def send_mpps_event_sync(
     Synchronous wrapper for sending MPPS events.
 
     This function can be called from synchronous code (like worklist_server.py).
-    It runs the async send in a background thread to avoid blocking the MPPS handler.
+    It runs the async send synchronously to ensure proper error handling.
+    Uses a threading lock to prevent concurrent sends from different threads.
 
     Args:
         action_id: The original action_id (source_message_id) from the worklist creation
@@ -234,28 +297,22 @@ def send_mpps_event_sync(
         mpps_instance_uid: Optional MPPS instance UID
 
     Returns:
-        True (always returns immediately, actual sending happens in background)
+        True if sent successfully, False otherwise
     """
-    import threading
-
-    def run_in_thread():
+    with _sync_send_lock:
         try:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             sender = get_event_sender()
-            loop.run_until_complete(
+            result = loop.run_until_complete(
                 sender.send_mpps_event(action_id, accession_number, status, mpps_instance_uid)
             )
+            return result
         except Exception as e:
-            logger.error(f"Error in background event sender: {e}")
+            logger.error(f"Error in MPPS event sender: {e}", exc_info=True)
+            return False
         finally:
             loop.close()
-
-    # Start the sending in a background thread
-    thread = threading.Thread(target=run_in_thread, daemon=True)
-    thread.start()
-
-    return True
 
 
 def send_image_event_sync(message_dict: Dict) -> bool:
@@ -263,31 +320,26 @@ def send_image_event_sync(message_dict: Dict) -> bool:
     Synchronous wrapper for sending image events.
 
     This function can be called from synchronous code (like image_listener.py).
-    It runs the async send in a background thread to avoid blocking the image processing.
+    It runs the async send synchronously to ensure proper ordering.
+    Uses a threading lock to prevent concurrent sends from different threads.
 
     Args:
         message_dict: The complete image_received message dictionary
 
     Returns:
-        True (always returns immediately, actual sending happens in background)
+        True if sent successfully, False otherwise
     """
-    import threading
-
-    def run_in_thread():
+    with _sync_send_lock:
         try:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             sender = get_event_sender()
-            loop.run_until_complete(
+            result = loop.run_until_complete(
                 sender.send_image_event(message_dict)
             )
+            return result
         except Exception as e:
-            logger.error(f"Error in background image event sender: {e}")
+            logger.error(f"Error in image event sender: {e}", exc_info=True)
+            return False
         finally:
             loop.close()
-
-    # Start the sending in a background thread
-    thread = threading.Thread(target=run_in_thread, daemon=True)
-    thread.start()
-
-    return True

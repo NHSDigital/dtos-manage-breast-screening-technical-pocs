@@ -11,6 +11,7 @@ For the full list of settings and their values, see https://docs.djangoproject.c
 from pathlib import Path
 import os
 import sys
+import jinja2
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -113,7 +114,8 @@ TEMPLATES = [
             "DIRS": [ BASE_DIR / "templates" ],
             "APP_DIRS": True,
             "OPTIONS": {
-                "environment": "manage_screening.jinja2_env.environment"
+                "environment": "manage_screening.jinja2_env.environment",
+                "undefined": jinja2.ChainableUndefined,
                 }
             },
         {
@@ -184,9 +186,16 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = '/assets/'
+
 STATICFILES_DIRS = (
     BASE_DIR / 'assets',
     )
+
+# Media files (User uploaded content - PACS images/thumbnails)
+# https://docs.djangoproject.com/en/5.1/howto/static-files/
+
+MEDIA_URL = '/pacs-images/'
+MEDIA_ROOT = BASE_DIR / 'pacs_images'
 
 
 # Default primary key field type

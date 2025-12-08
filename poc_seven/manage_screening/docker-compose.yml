@@ -34,14 +34,14 @@ services:
     volumes:
       - ./:/app
 
-  mpps-event-listener:
+  gateway-event-listener:
     build:
       dockerfile: Dockerfile
     env_file:
       - .env
-    container_name: mpps_event_listener
+    container_name: gateway_event_listener
     entrypoint: []
-    command: python gateway/services/mpps_event_listener.py
+    command: python gateway/services/gateway_event_listener.py
     networks:
       - poc_network
     depends_on:

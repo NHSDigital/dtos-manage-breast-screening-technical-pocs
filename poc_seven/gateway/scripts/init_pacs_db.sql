@@ -34,6 +34,15 @@ CREATE TABLE IF NOT EXISTS stored_instances (
     view_position TEXT,                   -- CC, MLO, etc.
     laterality TEXT,                      -- L, R
 
+    -- Dose and exposure parameters
+    organ_dose TEXT,                      -- (0040,0316) Mean Glandular Dose (MGD) in mGy
+    entrance_dose_in_mgy TEXT,            -- (0040,8302) Entrance surface dose in mGy
+    kvp TEXT,                             -- (0018,0060) Tube voltage in kV
+    exposure_in_uas TEXT,                 -- (0018,1153) Tube current-time product in µAs
+    anode_target_material TEXT,           -- (0018,1191) e.g., TUNGSTEN
+    filter_material TEXT,                 -- (0018,7050) e.g., RHODIUM
+    filter_thickness TEXT,                -- (0018,7052) Filter thickness in mm
+
     -- Transfer syntax and image info
     transfer_syntax_uid TEXT,
     sop_class_uid TEXT NOT NULL,
