@@ -36,7 +36,7 @@ RUN addgroup -g 1000 gateway && \
     adduser -D -u 1000 -G gateway gateway
 
 # Create directories with proper permissions
-RUN mkdir -p /var/lib/worklist /var/log/worklist && \
+RUN mkdir -p /var/lib/worklist /var/log/worklist /scripts && \
     chown -R gateway:gateway /var/lib/worklist /var/log/worklist
 
 # Copy binary from builder
@@ -45,6 +45,10 @@ RUN chmod +x /usr/local/bin/worklist-server
 
 # Copy SQL schema for database initialization
 COPY scripts/init_db.sql /scripts/init_db.sql
+
+# Copy entrypoint script
+COPY deployments/docker-entrypoint-worklist.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod 755 /usr/local/bin/docker-entrypoint.sh
 
 # Switch to non-root user
 USER gateway
@@ -58,5 +62,6 @@ ENV WORKLIST_AET=SCREENING_MWL \
     WORKLIST_DB_PATH=/var/lib/worklist/worklist.db \
     LOG_LEVEL=INFO
 
-# Run the worklist server
+# Run the worklist server with entrypoint for DB initialization
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["/usr/local/bin/worklist-server"]

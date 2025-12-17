@@ -39,7 +39,8 @@ RUN addgroup -g 1000 gateway && \
 RUN mkdir -p \
     /var/lib/pacs/storage \
     /var/lib/pacs/thumbnails \
-    /var/log/pacs && \
+    /var/log/pacs \
+    /scripts && \
     chown -R gateway:gateway /var/lib/pacs /var/log/pacs
 
 # Copy binary from builder
@@ -48,6 +49,10 @@ RUN chmod +x /usr/local/bin/pacs-server
 
 # Copy SQL schema for database initialization
 COPY scripts/init_pacs_db.sql /scripts/init_pacs_db.sql
+
+# Copy entrypoint script
+COPY deployments/docker-entrypoint-pacs.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod 755 /usr/local/bin/docker-entrypoint.sh
 
 # Switch to non-root user
 USER gateway
@@ -62,5 +67,6 @@ ENV PACS_AET=SCREENING_PACS \
     PACS_DB_PATH=/var/lib/pacs/pacs.db \
     LOG_LEVEL=INFO
 
-# Run the PACS server
+# Run the PACS server with entrypoint for DB initialization
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["/usr/local/bin/pacs-server"]
