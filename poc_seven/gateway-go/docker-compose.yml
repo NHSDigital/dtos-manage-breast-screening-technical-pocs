@@ -1,0 +1,141 @@
+# Docker Compose for Go Gateway Services
+# Can run standalone or alongside Python services for comparison testing
+
+services:
+  # DICOM Modality Worklist Server (Go implementation)
+  worklist-server:
+    build:
+      context: .
+      dockerfile: deployments/Dockerfile.worklist
+    container_name: go-worklist-server
+    ports:
+      # Use 5243 for Go version (parallel testing) or 4243 for replacement
+      - "${WORKLIST_PORT:-5243}:4243"
+    volumes:
+      # Persist worklist database
+      - worklist-db-go:/var/lib/worklist
+      # Persist logs
+      - worklist-logs-go:/var/log/worklist
+    env_file:
+      - .env
+    environment:
+      - WORKLIST_AET=${WORKLIST_AET:-SCREENING_MWL}
+      - WORKLIST_PORT=4243
+      - WORKLIST_DB_PATH=/var/lib/worklist/worklist.db
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    restart: unless-stopped
+    networks:
+      - gateway-network
+    healthcheck:
+      test: ["CMD", "sh", "-c", "test -f /var/lib/worklist/worklist.db"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # DICOM PACS Server (Go implementation)
+  pacs-server:
+    build:
+      context: .
+      dockerfile: deployments/Dockerfile.pacs
+    container_name: go-pacs-server
+    ports:
+      # Use 5244 for Go version (parallel testing) or 4244 for replacement
+      - "${PACS_PORT:-5244}:4244"
+    volumes:
+      # Persist PACS database and metadata
+      - pacs-db-go:/var/lib/pacs
+      # Persist DICOM storage
+      - pacs-storage-go:/var/lib/pacs/storage
+      # Mount thumbnails to local directory for easy access
+      - ./pacs_data/thumbnails:/var/lib/pacs/thumbnails
+      # Persist logs
+      - pacs-logs-go:/var/log/pacs
+    env_file:
+      - .env
+    environment:
+      - PACS_AET=${PACS_AET:-SCREENING_PACS}
+      - PACS_PORT=4244
+      - PACS_STORAGE_PATH=/var/lib/pacs/storage
+      - PACS_DB_PATH=/var/lib/pacs/pacs.db
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    restart: unless-stopped
+    networks:
+      - gateway-network
+    healthcheck:
+      test: ["CMD", "sh", "-c", "test -f /var/lib/pacs/pacs.db"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Azure Relay Listener (Go implementation)
+  relay-listener:
+    build:
+      context: .
+      dockerfile: deployments/Dockerfile.relay
+    container_name: go-relay-listener
+    volumes:
+      # Shared worklist database with worklist-server
+      - worklist-db-go:/var/lib/worklist
+    env_file:
+      - .env
+    environment:
+      - WORKLIST_DB_PATH=/var/lib/worklist/worklist.db
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    restart: unless-stopped
+    networks:
+      - gateway-network
+    depends_on:
+      worklist-server:
+        condition: service_healthy
+
+  # Image Processor Service (Go implementation)
+  image-processor:
+    build:
+      context: .
+      dockerfile: deployments/Dockerfile.processor
+    container_name: go-image-processor
+    volumes:
+      # Shared PACS storage (read-only for DICOM files)
+      - pacs-storage-go:/var/lib/pacs/storage:ro
+      # Shared PACS database
+      - pacs-db-go:/var/lib/pacs
+      # Shared worklist database (read-only for action_id lookup)
+      - worklist-db-go:/var/lib/worklist:ro
+      # Mount thumbnails to local directory
+      - ./pacs_data/thumbnails:/var/lib/pacs/thumbnails
+    env_file:
+      - .env
+    environment:
+      - PACS_DB_PATH=/var/lib/pacs/pacs.db
+      - PACS_STORAGE_ROOT=/var/lib/pacs/storage
+      - THUMBNAIL_ROOT=/var/lib/pacs/thumbnails
+      - WORKLIST_DB_PATH=/var/lib/worklist/worklist.db
+      - IMAGE_POLL_INTERVAL=${IMAGE_POLL_INTERVAL:-2}
+      - IMAGE_BATCH_SIZE=${IMAGE_BATCH_SIZE:-10}
+      - THUMBNAIL_QUALITY=${THUMBNAIL_QUALITY:-25}
+      - THUMBNAIL_HEIGHT=${THUMBNAIL_HEIGHT:-188}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    restart: unless-stopped
+    networks:
+      - gateway-network
+    depends_on:
+      pacs-server:
+        condition: service_healthy
+      worklist-server:
+        condition: service_healthy
+
+volumes:
+  worklist-db-go:
+    driver: local
+  worklist-logs-go:
+    driver: local
+  pacs-db-go:
+    driver: local
+  pacs-storage-go:
+    driver: local
+  pacs-logs-go:
+    driver: local
+
+networks:
+  gateway-network:
+    driver: bridge

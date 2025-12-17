@@ -1,0 +1,66 @@
+# Multi-stage Dockerfile for DICOM PACS Server
+# Stage 1: Build the Go binary
+FROM golang:alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache git
+
+# Set working directory
+WORKDIR /build
+
+# Copy go.mod and go.sum for dependency caching
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build the pacs-server binary
+# CGO_ENABLED=0 for static binary
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags='-w -s -extldflags "-static"' \
+    -o /build/pacs-server \
+    ./cmd/pacs-server
+
+# Stage 2: Create minimal runtime image
+FROM alpine:3.19
+
+# Install SQLite (for database operations) and ca-certificates (for HTTPS)
+RUN apk add --no-cache \
+    sqlite \
+    ca-certificates \
+    tzdata
+
+# Create non-root user
+RUN addgroup -g 1000 gateway && \
+    adduser -D -u 1000 -G gateway gateway
+
+# Create directories with proper permissions
+RUN mkdir -p \
+    /var/lib/pacs/storage \
+    /var/lib/pacs/thumbnails \
+    /var/log/pacs && \
+    chown -R gateway:gateway /var/lib/pacs /var/log/pacs
+
+# Copy binary from builder
+COPY --from=builder /build/pacs-server /usr/local/bin/pacs-server
+RUN chmod +x /usr/local/bin/pacs-server
+
+# Copy SQL schema for database initialization
+COPY scripts/init_pacs_db.sql /scripts/init_pacs_db.sql
+
+# Switch to non-root user
+USER gateway
+
+# Expose DICOM PACS port
+EXPOSE 4244
+
+# Set environment variables with defaults
+ENV PACS_AET=SCREENING_PACS \
+    PACS_PORT=4244 \
+    PACS_STORAGE_PATH=/var/lib/pacs/storage \
+    PACS_DB_PATH=/var/lib/pacs/pacs.db \
+    LOG_LEVEL=INFO
+
+# Run the PACS server
+CMD ["/usr/local/bin/pacs-server"]

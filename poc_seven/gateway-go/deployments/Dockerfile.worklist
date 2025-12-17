@@ -1,0 +1,62 @@
+# Multi-stage Dockerfile for DICOM Worklist Server
+# Stage 1: Build the Go binary
+FROM golang:alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache git
+
+# Set working directory
+WORKDIR /build
+
+# Copy go.mod and go.sum for dependency caching
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build the worklist-server binary
+# CGO_ENABLED=0 for static binary
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags='-w -s -extldflags "-static"' \
+    -o /build/worklist-server \
+    ./cmd/worklist-server
+
+# Stage 2: Create minimal runtime image
+FROM alpine:3.19
+
+# Install SQLite (for database operations) and ca-certificates (for HTTPS)
+RUN apk add --no-cache \
+    sqlite \
+    ca-certificates \
+    tzdata
+
+# Create non-root user
+RUN addgroup -g 1000 gateway && \
+    adduser -D -u 1000 -G gateway gateway
+
+# Create directories with proper permissions
+RUN mkdir -p /var/lib/worklist /var/log/worklist && \
+    chown -R gateway:gateway /var/lib/worklist /var/log/worklist
+
+# Copy binary from builder
+COPY --from=builder /build/worklist-server /usr/local/bin/worklist-server
+RUN chmod +x /usr/local/bin/worklist-server
+
+# Copy SQL schema for database initialization
+COPY scripts/init_db.sql /scripts/init_db.sql
+
+# Switch to non-root user
+USER gateway
+
+# Expose DICOM worklist port
+EXPOSE 4243
+
+# Set environment variables with defaults
+ENV WORKLIST_AET=SCREENING_MWL \
+    WORKLIST_PORT=4243 \
+    WORKLIST_DB_PATH=/var/lib/worklist/worklist.db \
+    LOG_LEVEL=INFO
+
+# Run the worklist server
+CMD ["/usr/local/bin/worklist-server"]

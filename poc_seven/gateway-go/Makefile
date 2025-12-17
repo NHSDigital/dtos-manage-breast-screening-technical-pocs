@@ -1,4 +1,4 @@
-.PHONY: build test coverage clean fmt lint help
+.PHONY: build test coverage clean fmt lint help docker-build docker-up docker-down docker-logs docker-clean
 
 # Build all binaries
 build:
@@ -64,17 +64,67 @@ test-short:
 	@echo "Running tests..."
 	go test -short -cover ./...
 
+# Docker Commands
+docker-build:
+	@echo "Building Docker images..."
+	docker-compose build
+
+docker-up:
+	@echo "Starting services with Docker Compose..."
+	docker-compose up -d
+	@echo "Services started! Use 'make docker-logs' to view logs"
+
+docker-down:
+	@echo "Stopping Docker services..."
+	docker-compose down
+
+docker-logs:
+	@echo "Following logs (Ctrl+C to exit)..."
+	docker-compose logs -f
+
+docker-restart:
+	@echo "Restarting Docker services..."
+	docker-compose restart
+
+docker-ps:
+	@echo "Service status:"
+	docker-compose ps
+
+docker-clean:
+	@echo "Stopping and removing all containers, networks, and volumes..."
+	docker-compose down -v
+	@echo "Docker cleanup complete!"
+
+# Build and run in one command
+docker-start: docker-build docker-up
+
 # Help
 help:
 	@echo "Available targets:"
+	@echo ""
+	@echo "Build & Test:"
 	@echo "  build        - Build all service binaries"
 	@echo "  test         - Run all tests with verbose output"
 	@echo "  coverage     - Run tests and generate HTML coverage report"
 	@echo "  bench        - Run benchmarks"
+	@echo "  test-short   - Run tests with coverage percentage"
+	@echo ""
+	@echo "Code Quality:"
 	@echo "  fmt          - Format code with go fmt"
 	@echo "  lint         - Run golangci-lint"
+	@echo ""
+	@echo "Docker:"
+	@echo "  docker-build   - Build all Docker images"
+	@echo "  docker-up      - Start services in detached mode"
+	@echo "  docker-down    - Stop all services"
+	@echo "  docker-logs    - Follow logs from all services"
+	@echo "  docker-restart - Restart all services"
+	@echo "  docker-ps      - Show service status"
+	@echo "  docker-clean   - Stop and remove everything (including volumes)"
+	@echo "  docker-start   - Build and start services (build + up)"
+	@echo ""
+	@echo "Maintenance:"
 	@echo "  clean        - Remove build artifacts"
 	@echo "  deps         - Download and tidy dependencies"
 	@echo "  verify       - Verify dependencies"
-	@echo "  test-short   - Run tests with coverage percentage"
 	@echo "  help         - Show this help message"
