@@ -351,6 +351,12 @@ func (w *WorklistStorage) CleanupOldItems(daysOld int) (int, error) {
 	return int(rowsAffected), nil
 }
 
+// DB returns the underlying database connection for custom queries
+// Use with caution - prefer using the WorklistStorage methods when possible
+func (w *WorklistStorage) DB() *sql.DB {
+	return w.db
+}
+
 // Close closes the database connection.
 func (w *WorklistStorage) Close() error {
 	return w.db.Close()
