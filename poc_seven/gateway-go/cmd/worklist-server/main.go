@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 	"screening-gateway/internal/config"
 	"screening-gateway/internal/dicom"
+	"screening-gateway/internal/relay"
 	"screening-gateway/internal/storage"
 )
 
@@ -47,9 +48,23 @@ func main() {
 		)
 	}
 
+	// Create relay sender for MPPS events
+	relaySender := relay.NewSender(
+		cfg.AzureRelayNamespace,
+		cfg.AzureRelayEventsHybridConnection, // Events go TO Django
+		cfg.AzureRelayKeyName,
+		cfg.AzureRelaySharedAccessKey,
+		logger,
+	)
+
+	logger.Info("Relay sender initialized",
+		zap.String("namespace", cfg.AzureRelayNamespace),
+		zap.String("events_connection", cfg.AzureRelayEventsHybridConnection),
+	)
+
 	// Create DICOM handlers
 	worklistHandler := dicom.NewWorklistHandler(worklistStorage, logger)
-	mppsHandler := dicom.NewMPPSHandler(worklistStorage, logger)
+	mppsHandler := dicom.NewMPPSHandler(worklistStorage, relaySender, logger)
 
 	// TODO: Integrate with DICOM networking library
 	// The following needs to be implemented with a DICOM SCP library:

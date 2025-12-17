@@ -5,12 +5,14 @@ import (
 	"sync"
 
 	"go.uber.org/zap"
+	"screening-gateway/internal/relay"
 	"screening-gateway/internal/storage"
 )
 
 // MPPSHandler handles Modality Performed Procedure Step (MPPS) N-CREATE and N-SET requests
 type MPPSHandler struct {
 	storage          *storage.WorklistStorage
+	relaySender      *relay.Sender // Optional - for sending events to Django
 	logger           *zap.Logger
 	managedInstances map[string]*MPPSInstance // SOPInstanceUID -> MPPS instance
 	mu               sync.RWMutex
@@ -26,9 +28,11 @@ type MPPSInstance struct {
 }
 
 // NewMPPSHandler creates a new MPPS handler
-func NewMPPSHandler(worklistStorage *storage.WorklistStorage, logger *zap.Logger) *MPPSHandler {
+// relaySender can be nil if relay communication is not configured
+func NewMPPSHandler(worklistStorage *storage.WorklistStorage, relaySender *relay.Sender, logger *zap.Logger) *MPPSHandler {
 	return &MPPSHandler{
 		storage:          worklistStorage,
+		relaySender:      relaySender,
 		logger:           logger,
 		managedInstances: make(map[string]*MPPSInstance),
 	}
@@ -115,9 +119,30 @@ func (h *MPPSHandler) HandleNCreate(
 				zap.String("source_message_id", sourceMessageID),
 			)
 
-			// TODO: Send MPPS event to Django via Azure Relay
-			// This will be implemented in Phase 3 (Azure Relay)
-			// Call: relay.SendMPPSEvent(sourceMessageID, accessionNumber, status, sopInstanceUID)
+			// Send MPPS event to Django via Azure Relay
+			if h.relaySender != nil {
+				if err := h.relaySender.SendMPPSEventSync(
+					sourceMessageID,
+					accessionNumber,
+					status,
+					&sopInstanceUID,
+				); err != nil {
+					// Log error but don't fail the procedure
+					// The MPPS operation itself succeeded
+					h.logger.Error("MPPS N-CREATE: Failed to send relay event (procedure succeeded)",
+						zap.String("accession_number", accessionNumber),
+						zap.String("source_message_id", sourceMessageID),
+						zap.Error(err),
+					)
+				} else {
+					h.logger.Info("MPPS N-CREATE: Relay event sent successfully",
+						zap.String("accession_number", accessionNumber),
+						zap.String("source_message_id", sourceMessageID),
+					)
+				}
+			} else {
+				h.logger.Debug("MPPS N-CREATE: Relay sender not configured, skipping event")
+			}
 		}
 	}
 
@@ -178,9 +203,30 @@ func (h *MPPSHandler) HandleNSet(
 				zap.String("source_message_id", sourceMessageID),
 			)
 
-			// TODO: Send MPPS event to Django via Azure Relay
-			// This will be implemented in Phase 3 (Azure Relay)
-			// Call: relay.SendMPPSEvent(sourceMessageID, accessionNumber, status, sopInstanceUID)
+			// Send MPPS event to Django via Azure Relay
+			if h.relaySender != nil {
+				if err := h.relaySender.SendMPPSEventSync(
+					sourceMessageID,
+					accessionNumber,
+					status,
+					nil, // MPPS UID not updated on N-SET
+				); err != nil {
+					// Log error but don't fail the procedure
+					// The MPPS operation itself succeeded
+					h.logger.Error("MPPS N-SET: Failed to send relay event (procedure succeeded)",
+						zap.String("accession_number", accessionNumber),
+						zap.String("source_message_id", sourceMessageID),
+						zap.Error(err),
+					)
+				} else {
+					h.logger.Info("MPPS N-SET: Relay event sent successfully",
+						zap.String("accession_number", accessionNumber),
+						zap.String("source_message_id", sourceMessageID),
+					)
+				}
+			} else {
+				h.logger.Debug("MPPS N-SET: Relay sender not configured, skipping event")
+			}
 		}
 	}
 

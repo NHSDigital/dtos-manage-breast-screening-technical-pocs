@@ -123,3 +123,12 @@ const (
 	ThumbnailStatusFailed    = "FAILED"
 	ThumbnailStatusSkip      = "SKIP"
 )
+
+// NewNullString creates a sql.NullString from a string
+// Returns Valid=false if string is empty
+func NewNullString(s string) sql.NullString {
+	if s == "" {
+		return sql.NullString{Valid: false}
+	}
+	return sql.NullString{String: s, Valid: true}
+}
