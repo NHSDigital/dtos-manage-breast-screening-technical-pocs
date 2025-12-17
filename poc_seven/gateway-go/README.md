@@ -14,11 +14,22 @@ This is a Go rewrite of the Python gateway services for the NHS Digital Breast S
 - [x] PACS SQLite storage layer
 - [x] Unit tests for hash functions
 
+**Phase 2: DICOM Services - COMPLETED ✅**
+
+- [x] DICOM metadata extraction (all tags including dose fields)
+- [x] C-STORE handler (idempotent image storage)
+- [x] Worklist C-FIND handler (MWL queries)
+- [x] MPPS N-CREATE/N-SET handlers (procedure status tracking)
+- [x] PACS server entry point
+- [x] Worklist server entry point
+- [x] Comprehensive DICOM networking documentation
+
+**Current Status:** All DICOM business logic implemented. Awaiting DICOM networking library integration.
+
 **Upcoming Phases:**
-- Phase 2: DICOM Services (Worklist C-FIND, PACS C-STORE, MPPS)
-- Phase 3: Azure Relay Communication
-- Phase 4: Image Processing & Thumbnails
-- Phase 5: Docker & Deployment
+- Phase 3: Azure Relay Communication (MPPS events, worklist actions)
+- Phase 4: Image Processing & Thumbnails (dcm2img, relay sender)
+- Phase 5: Docker & Deployment (multi-stage builds, testing)
 
 ## Architecture
 
