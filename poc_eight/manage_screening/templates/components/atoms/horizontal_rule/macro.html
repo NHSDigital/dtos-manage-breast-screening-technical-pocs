@@ -1,0 +1,11 @@
+{% macro horizontalRule(params) %}
+
+{% set class_names = "nhsd-a-horizontal-rule" %}
+
+{% if params and params.classes %}
+  {% set class_names = class_names + " " + params.classes %}
+{% endif %}
+
+<hr class="{{ class_names }}" />
+
+{% endmacro %}

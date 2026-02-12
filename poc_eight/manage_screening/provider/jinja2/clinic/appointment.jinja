@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ participant.first_name }} {{ participant.last_name }} - POC Eight</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #f0f4f5; }
+        h1, h2, h3 { color: #005eb8; }
+        a { color: #005eb8; }
+        .back-link { margin-bottom: 20px; display: block; }
+        .nhsuk-tag { display: inline-block; padding: 4px 10px; font-weight: bold; border-radius: 2px; }
+        .nhsuk-tag--grey { background: #505a5f; color: white; }
+        .nhsuk-tag--purple { background: #330072; color: white; }
+        .nhsuk-tag--yellow { background: #ffeb3b; color: #000; }
+        .nhsuk-tag--green { background: #007f3b; color: white; }
+        .nhsuk-tag--red { background: #d4351c; color: white; }
+        .nhsuk-inset-text { border-left: 4px solid #005eb8; padding: 15px; margin: 20px 0; background: white; }
+        .status-message { color: #4c6272; font-weight: normal; }
+        .nhsuk-grid-row { display: flex; flex-wrap: wrap; gap: 20px; }
+        .nhsuk-grid-column-one-half { flex: 1; min-width: 300px; }
+        .nhsuk-card { background: white; border: 1px solid #d8dde0; margin-bottom: 20px; }
+        .nhsuk-card__content { padding: 20px; }
+        .nhsuk-card__heading { margin-top: 0; border-bottom: 2px solid #005eb8; padding-bottom: 10px; }
+        .image-thumbnails { display: flex; flex-wrap: wrap; gap: 10px; }
+        .app-mammogram-image--placeholder { width: 150px; height: 150px; border: 1px solid #d8dde0; }
+        .app-mammogram-image--placeholder img { width: 100%; height: 100%; object-fit: contain; }
+        table { border-collapse: collapse; width: 100%; background: white; margin-top: 20px; }
+        th, td { border: 1px solid #d8dde0; padding: 12px; text-align: left; }
+        th { background: #005eb8; color: white; }
+        .image-added { animation: slideInFade 0.5s ease-in-out; }
+        @keyframes slideInFade { 0% { opacity: 0; transform: translateY(-20px); } 100% { opacity: 1; transform: translateY(0); } }
+        .status-updated { animation: highlight 1s ease-in-out; }
+        @keyframes highlight { 0%, 100% { background-color: transparent; } 50% { background-color: #ffe16f; } }
+    </style>
+</head>
+<body>
+    <a href="/clinic/{{ clinic.id }}" class="back-link">&larr; Back to clinic list</a>
+
+    <h1>
+        {{ participant.first_name }} {{ participant.last_name }}
+        {% if has_images or appointment.state == 'complete' %}
+        <span id="appointment-status" data-appointment-id="{{ appointment.id }}" data-state="{{ appointment.state }}" style="margin-left: 1rem;">
+            {{ format_status(appointment.state)|safe }}
+        </span>
+        {% endif %}
+    </h1>
+
+    {% if not has_images and appointment.state != 'complete' %}
+    <div class="nhsuk-inset-text">
+        <span id="appointment-status" data-appointment-id="{{ appointment.id }}" data-state="{{ appointment.state }}">
+            {{ format_status(appointment.state)|safe }}
+        </span>
+        {% if appointment.state == 'sent_to_modality' or appointment.state == 'in_progress' %}
+        <span id="status-message" class="status-message"> - Awaiting images</span>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div id="images-container">
+        {% if organized_images %}
+        <div class="nhsuk-grid-row">
+            {% for laterality_group in organized_images %}
+            <div class="nhsuk-grid-column-one-half" data-laterality="{{ laterality_group.laterality }}">
+                <div class="nhsuk-card">
+                    <div class="nhsuk-card__content">
+                        <h2 class="nhsuk-card__heading">{{ laterality_group.laterality_display }}</h2>
+                        {% for series_group in laterality_group.series_groups %}
+                        <div class="series-group" data-series-id="{{ series_group.series_id }}">
+                            <h3>{{ series_group.count }}× {{ series_group.view_position }}</h3>
+                            <div class="image-thumbnails">
+                                {% for image in series_group.images %}
+                                <div class="app-mammogram-image--placeholder" data-image-id="{{ image.id }}" data-instance-number="{{ image.instance_number }}">
+                                    <img src="{{ image.thumbnail.url }}" alt="">
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <div id="dose-table-container" {% if not organized_images %}style="display: none;"{% endif %}>
+        <h2>Radiation Dose Information</h2>
+        <table id="dose-table">
+            <thead>
+                <tr>
+                    <th>Laterality/View</th>
+                    <th>MGD (mGy)</th>
+                    <th>Entrance Dose (mGy)</th>
+                    <th>kVp</th>
+                    <th>Target/Filter</th>
+                </tr>
+            </thead>
+            <tbody id="dose-table-body">
+                {% if organized_images %}
+                {% for laterality_group in organized_images %}
+                {% for series_group in laterality_group.series_groups %}
+                {% for image in series_group.images %}
+                {% set laterality_view = laterality_group.laterality + series_group.view_position %}
+                <tr data-image-id="{{ image.id }}" data-laterality-view="{{ laterality_view }}">
+                    <td>{{ laterality_view }}</td>
+                    <td>{{ image.organ_dose if image.organ_dose else '—' }}</td>
+                    <td>{{ image.entrance_dose_in_mgy if image.entrance_dose_in_mgy else '—' }}</td>
+                    <td>{{ image.kvp if image.kvp else '—' }}</td>
+                    <td>
+                        {% if image.anode_target_material and image.filter_material %}
+                        {{ image.anode_target_material }}/{{ image.filter_material }}
+                        {% if image.filter_thickness %} ({{ image.filter_thickness }}mm){% endif %}
+                        {% else %}—{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                {% endfor %}
+                {% endfor %}
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+<script>
+const clinicId = "{{ clinic.id }}";
+const appointmentId = "{{ appointment.id }}";
+let imageEventSource = null;
+let statusEventSource = null;
+const seriesData = {};
+
+function createLateralityCard(laterality, lateralityDisplay) {
+    return `
+        <div class="nhsuk-grid-column-one-half" data-laterality="${laterality}">
+            <div class="nhsuk-card">
+                <div class="nhsuk-card__content">
+                    <h2 class="nhsuk-card__heading">${lateralityDisplay}</h2>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function createSeriesGroup(viewPosition, count, seriesId) {
+    return `
+        <div class="series-group" data-series-id="${seriesId}">
+            <h3>${count}× ${viewPosition}</h3>
+            <div class="image-thumbnails"></div>
+        </div>
+    `;
+}
+
+function createImageThumbnail(image) {
+    return `
+        <div class="app-mammogram-image--placeholder image-added" data-image-id="${image.id}" data-instance-number="${image.instance_number}">
+            <img src="${image.thumbnail_url}" alt="">
+        </div>
+    `;
+}
+
+function addNewImage(study, image) {
+    const container = document.getElementById('images-container');
+    if (document.querySelector(`[data-image-id="${image.id}"]`)) return;
+
+    const laterality = image.laterality.toUpperCase();
+    const lateralityDisplay = laterality === 'R' ? 'Right breast' : laterality === 'L' ? 'Left breast' : 'Unknown';
+
+    let gridRow = container.querySelector('.nhsuk-grid-row');
+    if (!gridRow) {
+        gridRow = document.createElement('div');
+        gridRow.className = 'nhsuk-grid-row';
+        container.appendChild(gridRow);
+    }
+
+    let lateralityCard = gridRow.querySelector(`[data-laterality="${laterality}"]`);
+    if (!lateralityCard) {
+        if (laterality === 'R' || gridRow.children.length === 0) {
+            gridRow.insertAdjacentHTML('afterbegin', createLateralityCard(laterality, lateralityDisplay));
+        } else {
+            gridRow.insertAdjacentHTML('beforeend', createLateralityCard(laterality, lateralityDisplay));
+        }
+        lateralityCard = gridRow.querySelector(`[data-laterality="${laterality}"]`);
+    }
+
+    const cardContent = lateralityCard.querySelector('.nhsuk-card__content');
+    let seriesGroup = cardContent.querySelector(`[data-series-id="${image.series_id}"]`);
+
+    if (!seriesGroup) {
+        const seriesKey = `${laterality}-${image.series_id}`;
+        seriesData[seriesKey] = { count: 1, viewPosition: image.view_position };
+        cardContent.insertAdjacentHTML('beforeend', createSeriesGroup(image.view_position, 1, image.series_id));
+        seriesGroup = cardContent.querySelector(`[data-series-id="${image.series_id}"]`);
+    } else {
+        const seriesKey = `${laterality}-${image.series_id}`;
+        if (!seriesData[seriesKey]) {
+            seriesData[seriesKey] = { count: seriesGroup.querySelectorAll('[data-image-id]').length, viewPosition: image.view_position };
+        }
+        seriesData[seriesKey].count++;
+        seriesGroup.querySelector('h3').textContent = `${seriesData[seriesKey].count}× ${image.view_position}`;
+    }
+
+    const thumbnailsContainer = seriesGroup.querySelector('.image-thumbnails');
+    thumbnailsContainer.insertAdjacentHTML('beforeend', createImageThumbnail(image));
+
+    // Show dose table and add row
+    const doseContainer = document.getElementById('dose-table-container');
+    if (doseContainer.style.display === 'none') doseContainer.style.display = 'block';
+
+    addDoseTableRow(image, laterality);
+}
+
+function addDoseTableRow(image, laterality) {
+    const tbody = document.getElementById('dose-table-body');
+    const lateralityView = `${laterality}${image.view_position}`;
+    const mgd = image.organ_dose || '—';
+    const entranceDose = image.entrance_dose_in_mgy || '—';
+    const kvp = image.kvp || '—';
+    let targetFilter = '—';
+    if (image.anode_target_material && image.filter_material) {
+        targetFilter = `${image.anode_target_material}/${image.filter_material}`;
+        if (image.filter_thickness) targetFilter += ` (${image.filter_thickness}mm)`;
+    }
+    tbody.insertAdjacentHTML('beforeend', `
+        <tr data-image-id="${image.id}" data-laterality-view="${lateralityView}">
+            <td>${lateralityView}</td><td>${mgd}</td><td>${entranceDose}</td><td>${kvp}</td><td>${targetFilter}</td>
+        </tr>
+    `);
+}
+
+function connectImageSSE() {
+    if (imageEventSource) imageEventSource.close();
+    imageEventSource = new EventSource(`/api/clinic/${clinicId}/appointment/${appointmentId}/images/stream`);
+    imageEventSource.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        if (data.type === 'new_image') addNewImage(data.study, data.image);
+    };
+    imageEventSource.onerror = () => { imageEventSource.close(); setTimeout(connectImageSSE, 5000); };
+}
+
+function connectStatusSSE() {
+    if (statusEventSource) statusEventSource.close();
+    statusEventSource = new EventSource(`/api/clinic/${clinicId}/appointment/${appointmentId}/status/stream`);
+    statusEventSource.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        if (data.type === 'status_change') {
+            const el = document.getElementById('appointment-status');
+            if (el) {
+                el.innerHTML = data.html;
+                el.setAttribute('data-state', data.state);
+                el.classList.add('status-updated');
+                setTimeout(() => el.classList.remove('status-updated'), 1000);
+            }
+        }
+    };
+    statusEventSource.onerror = () => { statusEventSource.close(); setTimeout(connectStatusSSE, 5000); };
+}
+
+connectImageSSE();
+connectStatusSSE();
+window.addEventListener('beforeunload', () => { if (imageEventSource) imageEventSource.close(); if (statusEventSource) statusEventSource.close(); });
+</script>
+</body>
+</html>
