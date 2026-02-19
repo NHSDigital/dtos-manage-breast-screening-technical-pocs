@@ -1,0 +1,20 @@
+{% macro table(headers, rows) %}
+  <table class="nhsuk-table">
+    <thead class="nhsuk-table__head">
+      <tr>
+        {% for header in headers %}
+          <th class="nhsuk-table__header">{{ header }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody class="nhsuk-table__body">
+      {% for row in rows %}
+        <tr>
+          {% for cell in row %}
+            <td class="nhsuk-table__cell">{{ cell.html | safe if cell.html else cell.text }}</td>
+          {% endfor %}
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endmacro %}

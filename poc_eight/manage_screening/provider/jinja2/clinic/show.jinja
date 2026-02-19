@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clinic {{ clinic.date }} - POC Eight</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #f0f4f5; }
+        h1, h2 { color: #005eb8; }
+        a { color: #005eb8; }
+        table { border-collapse: collapse; width: 100%; background: white; margin-top: 20px; }
+        th, td { border: 1px solid #d8dde0; padding: 12px; text-align: left; }
+        th { background: #005eb8; color: white; }
+        tr:hover { background: #f0f4f5; }
+        .nhsuk-tag { display: inline-block; padding: 4px 10px; font-weight: bold; border-radius: 2px; }
+        .nhsuk-tag--grey { background: #505a5f; color: white; }
+        .nhsuk-tag--purple { background: #330072; color: white; }
+        .nhsuk-tag--yellow { background: #ffeb3b; color: #000; }
+        .nhsuk-tag--green { background: #007f3b; color: white; }
+        .nhsuk-tag--red { background: #d4351c; color: white; }
+        .nhsuk-button {
+            background: #007f3b; color: white; border: none;
+            padding: 12px 20px; cursor: pointer; font-weight: bold;
+            border-radius: 4px;
+        }
+        .nhsuk-button:hover { background: #00662f; }
+        .nhsuk-button:disabled { background: #aeb7bd; cursor: not-allowed; }
+        .back-link { margin-bottom: 20px; display: block; }
+        .status-updated { animation: highlight 1s ease-in-out; }
+        @keyframes highlight {
+            0%, 100% { background-color: transparent; }
+            50% { background-color: #ffe16f; }
+        }
+    </style>
+</head>
+<body>
+    <a href="/clinics" class="back-link">&larr; Back to clinics</a>
+
+    <h1>POC Eight: Azure Service Bus Demo</h1>
+    <h2>Clinic: {{ clinic.date.strftime('%d/%m/%Y') }}</h2>
+
+    <table>
+        <thead>
+            <tr>
+                {% for header in headers %}
+                <th>{{ header }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                {% for cell in row %}
+                <td>
+                    {% if cell.html %}
+                        {{ cell.html | safe }}
+                    {% else %}
+                        {{ cell.text }}
+                    {% endif %}
+                </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+<script>
+  const clinicId = "{{ clinic.id }}";
+  let statusEventSource = null;
+
+  document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('submit', function(event) {
+      const form = event.target;
+      if (form.matches('form[action="/gateway-actions/screening-order/"]')) {
+        event.preventDefault();
+
+        const formData = new FormData(form);
+        const button = form.querySelector('button[type="submit"]');
+
+        if (button) {
+          button.disabled = true;
+          button.textContent = 'Sending...';
+        }
+
+        fetch(form.action, {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        })
+        .then(response => response.json())
+        .then(data => {
+          console.log('Sent to gateway via Service Bus:', data);
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          if (button) {
+            button.disabled = false;
+            button.textContent = 'Send to modality';
+          }
+        });
+      }
+    });
+  });
+
+  function connectStatusSSE() {
+    if (statusEventSource) {
+      statusEventSource.close();
+    }
+
+    const statusSSEUrl = `/api/clinic/${clinicId}/statuses/stream`;
+    statusEventSource = new EventSource(statusSSEUrl);
+
+    statusEventSource.onmessage = function(event) {
+      try {
+        const data = JSON.parse(event.data);
+
+        if (data.type === 'connected') {
+          console.log('SSE connected');
+        } else if (data.type === 'status_change') {
+          const statusElement = document.querySelector(`[data-appointment-id="${data.appointment_id}"]`);
+          if (statusElement && statusElement.innerHTML !== data.html) {
+            statusElement.innerHTML = data.html;
+            statusElement.classList.add('status-updated');
+            setTimeout(() => statusElement.classList.remove('status-updated'), 1000);
+
+            const row = statusElement.closest('tr');
+            if (row) {
+              const buttonCell = row.querySelector('td:last-child');
+              if (buttonCell) {
+                if (data.state === 'complete') {
+                  buttonCell.innerHTML = '';
+                } else if (data.state === 'sent_to_modality') {
+                  const button = buttonCell.querySelector('button[type="submit"]');
+                  if (button) {
+                    button.textContent = 'Resend';
+                    button.disabled = false;
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('SSE parse error:', error);
+      }
+    };
+
+    statusEventSource.onerror = function(error) {
+      console.error('SSE error, reconnecting...');
+      statusEventSource.close();
+      setTimeout(connectStatusSSE, 5000);
+    };
+  }
+
+  connectStatusSSE();
+
+  window.addEventListener('beforeunload', function() {
+    if (statusEventSource) {
+      statusEventSource.close();
+    }
+  });
+</script>
+</body>
+</html>

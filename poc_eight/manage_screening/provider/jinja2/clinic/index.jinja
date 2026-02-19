@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clinics - POC Eight</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #f0f4f5; }
+        h1 { color: #005eb8; }
+        table { border-collapse: collapse; width: 100%; background: white; }
+        th, td { border: 1px solid #d8dde0; padding: 12px; text-align: left; }
+        th { background: #005eb8; color: white; }
+        tr:hover { background: #f0f4f5; }
+        a { color: #005eb8; }
+    </style>
+</head>
+<body>
+    <h1>POC Eight: Azure Service Bus Demo</h1>
+    <h2>Clinics</h2>
+
+    <table>
+        <thead>
+            <tr>
+                {% for header in headers %}
+                <th>{{ header }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                {% for cell in row %}
+                <td>
+                    {% if cell.html %}
+                        {{ cell.html | safe }}
+                    {% else %}
+                        {{ cell.text }}
+                    {% endif %}
+                </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

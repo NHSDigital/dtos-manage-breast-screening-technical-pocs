@@ -1,0 +1,204 @@
+#!/usr/bin/env python3
+"""
+Demo script: Simulate sending a DICOM image to manage-screening.
+
+This script:
+1. Reads the most recent worklist item from the gateway database
+2. Sends a study.image_received event via Service Bus
+3. Includes a sample thumbnail (base64 encoded)
+
+Usage:
+    uv run python src/demo_send_image.py
+"""
+
+import base64
+import json
+import os
+import sqlite3
+import sys
+import uuid
+from datetime import datetime
+from pathlib import Path
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from dotenv import load_dotenv
+
+# Load environment
+load_dotenv(Path(__file__).parent.parent / ".env")
+
+from src.service_bus_event_sender import send_image_received_event
+
+DB_PATH = os.getenv("MWL_DB_PATH", "./data/worklist.db")
+
+
+def get_latest_worklist_item():
+    """Get the most recent worklist item from the database."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT * FROM worklist_items
+        ORDER BY created_at DESC
+        LIMIT 1
+    """)
+    row = cursor.fetchone()
+    conn.close()
+
+    if row:
+        return dict(row)
+    return None
+
+
+def create_sample_thumbnail():
+    """Create a minimal 1x1 red pixel JPEG as sample thumbnail."""
+    # Minimal valid JPEG (1x1 red pixel)
+    jpeg_bytes = bytes([
+        0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01,
+        0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xFF, 0xDB, 0x00, 0x43,
+        0x00, 0x08, 0x06, 0x06, 0x07, 0x06, 0x05, 0x08, 0x07, 0x07, 0x07, 0x09,
+        0x09, 0x08, 0x0A, 0x0C, 0x14, 0x0D, 0x0C, 0x0B, 0x0B, 0x0C, 0x19, 0x12,
+        0x13, 0x0F, 0x14, 0x1D, 0x1A, 0x1F, 0x1E, 0x1D, 0x1A, 0x1C, 0x1C, 0x20,
+        0x24, 0x2E, 0x27, 0x20, 0x22, 0x2C, 0x23, 0x1C, 0x1C, 0x28, 0x37, 0x29,
+        0x2C, 0x30, 0x31, 0x34, 0x34, 0x34, 0x1F, 0x27, 0x39, 0x3D, 0x38, 0x32,
+        0x3C, 0x2E, 0x33, 0x34, 0x32, 0xFF, 0xC0, 0x00, 0x0B, 0x08, 0x00, 0x01,
+        0x00, 0x01, 0x01, 0x01, 0x11, 0x00, 0xFF, 0xC4, 0x00, 0x1F, 0x00, 0x00,
+        0x01, 0x05, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+        0x09, 0x0A, 0x0B, 0xFF, 0xC4, 0x00, 0xB5, 0x10, 0x00, 0x02, 0x01, 0x03,
+        0x03, 0x02, 0x04, 0x03, 0x05, 0x05, 0x04, 0x04, 0x00, 0x00, 0x01, 0x7D,
+        0x01, 0x02, 0x03, 0x00, 0x04, 0x11, 0x05, 0x12, 0x21, 0x31, 0x41, 0x06,
+        0x13, 0x51, 0x61, 0x07, 0x22, 0x71, 0x14, 0x32, 0x81, 0x91, 0xA1, 0x08,
+        0x23, 0x42, 0xB1, 0xC1, 0x15, 0x52, 0xD1, 0xF0, 0x24, 0x33, 0x62, 0x72,
+        0x82, 0x09, 0x0A, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x25, 0x26, 0x27, 0x28,
+        0x29, 0x2A, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3A, 0x43, 0x44, 0x45,
+        0x46, 0x47, 0x48, 0x49, 0x4A, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59,
+        0x5A, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6A, 0x73, 0x74, 0x75,
+        0x76, 0x77, 0x78, 0x79, 0x7A, 0x83, 0x84, 0x85, 0x86, 0x87, 0x88, 0x89,
+        0x8A, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97, 0x98, 0x99, 0x9A, 0xA2, 0xA3,
+        0xA4, 0xA5, 0xA6, 0xA7, 0xA8, 0xA9, 0xAA, 0xB2, 0xB3, 0xB4, 0xB5, 0xB6,
+        0xB7, 0xB8, 0xB9, 0xBA, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8, 0xC9,
+        0xCA, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6, 0xD7, 0xD8, 0xD9, 0xDA, 0xE1, 0xE2,
+        0xE3, 0xE4, 0xE5, 0xE6, 0xE7, 0xE8, 0xE9, 0xEA, 0xF1, 0xF2, 0xF3, 0xF4,
+        0xF5, 0xF6, 0xF7, 0xF8, 0xF9, 0xFA, 0xFF, 0xDA, 0x00, 0x08, 0x01, 0x01,
+        0x00, 0x00, 0x3F, 0x00, 0xFB, 0xD5, 0xDB, 0x20, 0xA8, 0xF1, 0x7E, 0xCA,
+        0x87, 0xFF, 0xD9
+    ])
+    return base64.b64encode(jpeg_bytes).decode('utf-8')
+
+
+def send_demo_image(worklist_item: dict, laterality: str = "R", view: str = "CC", study_uid: str = None):
+    """Send a demo image_received event."""
+
+    now = datetime.utcnow()
+    # Use provided study_uid or generate new one (all images in exam should share study_uid)
+    if study_uid is None:
+        study_uid = f"1.2.826.0.1.3680043.8.498.{uuid.uuid4().int >> 64}"
+    # Each view gets its own series
+    series_uid = f"1.2.826.0.1.3680043.8.498.{uuid.uuid4().int >> 64}"
+    # Each image gets unique SOP instance UID
+    sop_uid = f"1.2.826.0.1.3680043.8.498.{uuid.uuid4().int >> 64}"
+
+    payload = {
+        "message_type": "study.image_received",
+        "source_reference": {
+            "action_id": worklist_item["source_message_id"],
+        },
+        "parameters": {
+            "study": {
+                "accession_number": worklist_item["accession_number"],
+                "study_instance_uid": study_uid,
+                "modality": "MG",
+                "study_date": now.strftime("%Y%m%d"),
+                "study_time": now.strftime("%H%M%S"),
+                "study_description": "Screening Mammogram",
+            },
+            "series": {
+                "series_instance_uid": series_uid,
+                "series_number": "1",
+                "series_description": f"{laterality} {view}",
+            },
+            "image": {
+                "sop_instance_uid": sop_uid,
+                "instance_number": "1",
+                "dimensions": {
+                    "rows": 4096,
+                    "columns": 3328,
+                },
+                "acquisition": {
+                    "view_position": view,
+                    "laterality": laterality,
+                },
+                "dose": {
+                    "organ_dose": "1.52",
+                    "entrance_dose_in_mgy": "8.34",
+                    "kvp": "29",
+                    "exposure_in_uas": "112000",
+                    "anode_target_material": "TUNGSTEN",
+                    "filter_material": "RHODIUM",
+                    "filter_thickness": "0.05",
+                },
+                "thumbnail": {
+                    "data": create_sample_thumbnail(),
+                    "format": "jpeg",
+                },
+                "received_at": now.isoformat() + "Z",
+            },
+        },
+    }
+
+    print(f"Sending image: {laterality} {view} for accession {worklist_item['accession_number']}")
+    success = send_image_received_event(payload)
+
+    if success:
+        print(f"  ✓ Sent successfully")
+    else:
+        print(f"  ✗ Failed to send")
+
+    return success
+
+
+def main():
+    print("Demo: Send DICOM Image to Manage")
+    print("=" * 40)
+
+    # Get latest worklist item
+    item = get_latest_worklist_item()
+
+    if not item:
+        print("No worklist items found in database.")
+        print(f"Database path: {DB_PATH}")
+        print("\nFirst, send a worklist item from manage:")
+        print("  1. Run: uv run python manage.py runserver")
+        print("  2. Go to http://localhost:8000/clinics")
+        print("  3. Click 'Send to modality' for an appointment")
+        return
+
+    print(f"Found worklist item:")
+    print(f"  Accession: {item['accession_number']}")
+    print(f"  Patient: {item['patient_name']}")
+    print(f"  Action ID: {item['source_message_id']}")
+    print()
+
+    # Generate a single study UID for all images (they're all from the same exam)
+    study_uid = f"1.2.826.0.1.3680043.8.498.{uuid.uuid4().int >> 64}"
+
+    # Send 4 standard mammography views
+    views = [
+        ("R", "CC"),   # Right CC
+        ("R", "MLO"),  # Right MLO
+        ("L", "CC"),   # Left CC
+        ("L", "MLO"),  # Left MLO
+    ]
+
+    for laterality, view in views:
+        send_demo_image(item, laterality, view, study_uid=study_uid)
+
+    print()
+    print("Done! Check the manage app to see the images.")
+
+
+if __name__ == "__main__":
+    main()

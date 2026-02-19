@@ -1,0 +1,16 @@
+{% macro send_to_modality_button(success_url, csrf_token, form_fields, previously_sent) %}
+
+<form method='post' action='/gateway-actions/screening-order/'>
+    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}"/>
+    <input type="hidden" name="success_url" value="{{ success_url | safe }}"/>
+    {{ form_fields | safe }}
+    <button type='submit' class="nhsuk-button">
+      {% if previously_sent %}
+        Resend
+      {% else %}
+        Send to modality
+      {% endif %}
+    </button>
+</form>
+
+{% endmacro %}
